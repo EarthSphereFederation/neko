@@ -14,8 +14,8 @@ jobs:
     name: ${{ matrix.os }}-hosted-basic
     runs-on: ${{ matrix.os }}
     env:
-      vulkan-ver: 1.3.204.0
-      VULKAN_SDK: "C:\\VulkanSDK\\1.3.204.0"
+      vulkan-ver: 1.3.211.0
+      VULKAN_SDK: "C:\\VulkanSDK\\1.3.211.0"
     strategy:
       fail-fast: false
       matrix:
