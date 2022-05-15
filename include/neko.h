@@ -293,28 +293,17 @@ namespace neko
     
     struct RHISwapChainDesc
     {
+        NEKO_PARAM_WITH_DEFAULT(NativeObject, Surface, nullptr);
         NEKO_PARAM_WITH_DEFAULT(RHIFormat, Format, RHIFormat::Undefined);
         NEKO_PARAM_WITH_DEFAULT(bool, VSync, true);
     };
 
-    class RHISwapChain : public RHIResource
+    class RHISwapchain : public RHIResource
     {
     };
-    typedef RefCountPtr<RHISwapChain> RHISwapChainRef;
+    typedef RefCountPtr<RHISwapchain> RHISwapchainRef;
 
-#ifdef NEKO_VULKAN
-    struct RHIVulkanDesc
-    { 
-        const char** InstanceExtensions = nullptr;
-        uint32_t InstanceExtensionNum = 0;
-        RHIVulkanDesc& SetInstanceExtensions(const char** extensions, uint32_t num)
-        {
-            InstanceExtensions = extensions;
-            InstanceExtensionNum = num;
-            return *this;
-        }
-    };
-#endif
+
 
     struct RHIFeatures
     {
@@ -326,9 +315,26 @@ namespace neko
         NEKO_PARAM_WITH_DEFAULT(bool, Validation, false);
         NEKO_PARAM_WITH_DEFAULT(uint32_t, GpuIndex, 0);
         NEKO_PARAM_WITH_DEFAULT(RHIFeatures, Features, RHIFeatures());
+
 #ifdef NEKO_VULKAN
+        struct RHIVulkanDesc
+        {
+            const char** InstanceExtensions = nullptr;
+            uint32_t InstanceExtensionNum = 0;
+            RHIVulkanDesc& SetInstanceExtensions(const char** extensions, uint32_t num)
+            {
+                InstanceExtensions = extensions;
+                InstanceExtensionNum = num;
+                return *this;
+            }
+        };
         NEKO_PARAM_WITH_DEFAULT(RHIVulkanDesc, VulkanDesc, RHIVulkanDesc());
 #endif
+    };
+
+    class GPUInfo
+    {
+        std::vector<RHIFormat> SupportedFormats;
     };
 
     class RHIDevice : public RHIResource
@@ -343,7 +349,11 @@ namespace neko
 
         [[nodiscard]] virtual RHIBindingLayoutRef CreateBindingLayout(const RHIBindingLayoutDesc& desc) const = 0;
         
-        //[[nodiscard]] virtual RHISwapChainRef CreateSwapChain(const RHISwapChainDesc& desc) const = 0;
+        [[nodiscard]] virtual RHISwapchainRef CreateSwapChain(const RHISwapChainDesc& desc) const = 0;
+    public:
+#ifdef NEKO_VULKAN
+        [[nodiscard]] virtual NativeObject GetVkInstance() const = 0;
+#endif
     };
 
     typedef RefCountPtr<RHIDevice> RHIDeviceRef;

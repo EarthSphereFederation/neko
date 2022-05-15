@@ -153,6 +153,11 @@ namespace neko
 
             return true;
         }
+
+        NativeObject VulkanDevice::GetVkInstance() const
+        {
+            return Context->Instance;
+        }
     }
 
     RHIDeviceRef CreateDevice(const RHIDeviceDesc& desc)

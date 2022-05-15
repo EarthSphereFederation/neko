@@ -290,6 +290,20 @@ namespace neko
 			}
 		}
 
+		inline VkColorSpaceKHR ConvertToVkColorSpaceKHR(const RHIFormat& Format)
+		{
+			switch (Format)
+			{
+			case RHIFormat::B8G8R8A8_SNORM:
+			{
+				return VkColorSpaceKHR::VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT;
+			}
+			default:
+				CHECK(false);
+				return VkColorSpaceKHR::VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT;
+			}
+		}
+
 		struct VulkanContext final : public RefCounter<RHIResource>
 		{
 			VkInstance Instance = nullptr;
@@ -388,6 +402,20 @@ namespace neko
 			virtual NativeObject GetNativeObject() const override{ return DescriptorSetLayout; }
 		};
 		
+		class VulkanSwapchain final : public RefCounter<RHISwapchain>
+		{
+		private:
+			VkSwapchainKHR Swapchain = nullptr;
+			uint32_t ImageCount = 0;
+			std::vector<VkImage> Images;
+			std::vector<VkImageView> ImageViews;
+			VulkanContextPtr Context;
+		public:
+			VulkanSwapchain(const VulkanContextPtr&);
+			~VulkanSwapchain();
+			bool Initalize(const RHISwapChainDesc& Desc);
+		};
+		
 
 		class VulkanDevice final : public RefCounter<RHIDevice>
 		{
@@ -407,7 +435,10 @@ namespace neko
 			[[nodiscard]] virtual RHIGraphicPipelineRef CreateGraphicPipeline(const RHIGraphicPipelineDesc&, const RHIFrameBuffer&) const override;
 
 			[[nodiscard]] virtual RHIBindingLayoutRef CreateBindingLayout(const RHIBindingLayoutDesc& desc) const override;
-			//[[nodiscard]] virtual SwapChainPtr CreateSwapChain(const SwapChainDesc& desc) const override;
+			
+			[[nodiscard]] virtual RHISwapchainRef CreateSwapChain(const RHISwapChainDesc& desc) const override;
+
+			[[nodiscard]] virtual NativeObject GetVkInstance() const override;
 		};
 	}
 };
