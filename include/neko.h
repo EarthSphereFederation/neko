@@ -19,18 +19,18 @@ namespace neko
     inline bool operator ==(T a, uint32_t b) { return uint32_t(a) == b; } \
     inline bool operator !=(T a, uint32_t b) { return uint32_t(a) != b; }
 
-#define NEKO_PARAM_WITH_DEFAULT(ClassType,ParamType,Param,Default) \
+#define NEKO_PARAM_WITH_DEFAULT(ParamType,Param,Default) \
         ParamType Param = Default; \
-        ClassType& Set##Param(const ParamType& value) \
+        auto& Set##Param(const ParamType& value) \
         { \
             Param = value;\
             return *this; \
         } \
        
 
-#define NEKO_PARAM_ARRAY(ClassType,ParamType,Param,Size) \
+#define NEKO_PARAM_ARRAY(ParamType,Param,Size) \
         static_vector<ParamType,Size> Param##Array; \
-        ClassType& Add##Param(const ParamType& value) \
+        auto& Add##Param(const ParamType& value) \
         { \
             Param##Array.push_back(value);\
             return *this; \
@@ -155,11 +155,11 @@ namespace neko
      
     struct RHIShaderDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderDesc, const char*, DebugName, "");
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderDesc, const char*, Blob, "");
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderDesc, const char*, EntryPoint, "");
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderDesc, RHIShaderStage, Stage, RHIShaderStage::All);
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderDesc, uint32_t, Size, 0);
+        NEKO_PARAM_WITH_DEFAULT(const char*, DebugName, "");
+        NEKO_PARAM_WITH_DEFAULT(const char*, Blob, "");
+        NEKO_PARAM_WITH_DEFAULT(const char*, EntryPoint, "");
+        NEKO_PARAM_WITH_DEFAULT(RHIShaderStage, Stage, RHIShaderStage::All);
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, Size, 0);
     };
 
     class RHIShader : public RHIResource
@@ -171,68 +171,68 @@ namespace neko
 
     struct RHIVertexAttribute
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexAttribute, RHIFormat, Format, RHIFormat::Undefined);
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexAttribute, uint8_t, Binding,0);
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexAttribute, uint8_t, Location, 0);
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexAttribute, uint8_t, Offset, 0);
+        NEKO_PARAM_WITH_DEFAULT(RHIFormat, Format, RHIFormat::Undefined);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding,0);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Location, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Offset, 0);
     };
 
     struct RHIVertexBinding
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexBinding, uint8_t, Binding, 0);
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexBinding, uint8_t, Stride, 0);
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexBinding, RHIVertexRate, VertexRate, RHIVertexRate::Vertex);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Stride, 0);
+        NEKO_PARAM_WITH_DEFAULT(RHIVertexRate, VertexRate, RHIVertexRate::Vertex);
     };
 
     struct RHIVertexInputLayout
     {
-        NEKO_PARAM_ARRAY(RHIVertexInputLayout, RHIVertexAttribute, Attribute, MAX_VERTEX_ATTRIBUTE_COUNT);
-        NEKO_PARAM_ARRAY(RHIVertexInputLayout, RHIVertexBinding, Binding, MAX_VERTEX_BINDING_COUNT);
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexInputLayout, uint8_t, AttributeCount, 0);
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexInputLayout, uint8_t, Unused, 0);
+        NEKO_PARAM_ARRAY(RHIVertexAttribute, Attribute, MAX_VERTEX_ATTRIBUTE_COUNT);
+        NEKO_PARAM_ARRAY(RHIVertexBinding, Binding, MAX_VERTEX_BINDING_COUNT);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, AttributeCount, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Unused, 0);
     };
         
     struct RHIRasterSate
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIRasterSate, RHICullMode, CullMode, RHICullMode::Back);
-        NEKO_PARAM_WITH_DEFAULT(RHIRasterSate, RHIPolygonMode, PolygonMode, RHIPolygonMode::Fill);
-        NEKO_PARAM_WITH_DEFAULT(RHIRasterSate, RHIFrontFace, FrontFace, RHIFrontFace::CCW);
-        NEKO_PARAM_WITH_DEFAULT(RHIRasterSate, uint8_t, Unused, 0);
+        NEKO_PARAM_WITH_DEFAULT(RHICullMode, CullMode, RHICullMode::Back);
+        NEKO_PARAM_WITH_DEFAULT(RHIPolygonMode, PolygonMode, RHIPolygonMode::Fill);
+        NEKO_PARAM_WITH_DEFAULT(RHIFrontFace, FrontFace, RHIFrontFace::CCW);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Unused, 0);
     };
 
     struct RHIDepthStencilState
     {
         struct RHIStencilState
         {
-            NEKO_PARAM_WITH_DEFAULT(RHIStencilState, RHIStencilOp, FailOp, RHIStencilOp::Keep);
-            NEKO_PARAM_WITH_DEFAULT(RHIStencilState, RHIStencilOp, DepthFailOp, RHIStencilOp::Keep);
-            NEKO_PARAM_WITH_DEFAULT(RHIStencilState, RHIStencilOp, PassOp, RHIStencilOp::Keep);
-            NEKO_PARAM_WITH_DEFAULT(RHIStencilState, RHICompareOp, StencilCompareOp, RHICompareOp::Always);
+            NEKO_PARAM_WITH_DEFAULT(RHIStencilOp, FailOp, RHIStencilOp::Keep);
+            NEKO_PARAM_WITH_DEFAULT(RHIStencilOp, DepthFailOp, RHIStencilOp::Keep);
+            NEKO_PARAM_WITH_DEFAULT(RHIStencilOp, PassOp, RHIStencilOp::Keep);
+            NEKO_PARAM_WITH_DEFAULT(RHICompareOp, StencilCompareOp, RHICompareOp::Always);
         };
 
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, bool, DepthTest, true);
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, bool, DepthWrite, true);
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, RHICompareOp, DepthCompareOp, RHICompareOp::Less);
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, bool, StencilTest, false);
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, uint8_t, ReadMask, 0xff);
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, uint8_t, WriteMask, 0xff);
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, uint8_t, StencilRef, 0u);
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, RHIStencilState, FrontStencil, RHIStencilState());
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, RHIStencilState, BackStencil, RHIStencilState());
+        NEKO_PARAM_WITH_DEFAULT(bool, DepthTest, true);
+        NEKO_PARAM_WITH_DEFAULT(bool, DepthWrite, true);
+        NEKO_PARAM_WITH_DEFAULT(RHICompareOp, DepthCompareOp, RHICompareOp::Less);
+        NEKO_PARAM_WITH_DEFAULT(bool, StencilTest, false);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, ReadMask, 0xff);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, WriteMask, 0xff);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, StencilRef, 0u);
+        NEKO_PARAM_WITH_DEFAULT(RHIStencilState, FrontStencil, RHIStencilState());
+        NEKO_PARAM_WITH_DEFAULT(RHIStencilState, BackStencil, RHIStencilState());
     };
 
     struct RHIBlendState
     {
         struct RHIRenderTarget
         {
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, bool, BlendEnable, false);
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, RHIBlendFactor, SrcColor, RHIBlendFactor::One);
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, RHIBlendFactor, DestColor, RHIBlendFactor::Zero);
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, RHIBlendOp, ColorOp, RHIBlendOp::Add);
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, RHIBlendFactor, SrcAlpha, RHIBlendFactor::One);
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, RHIBlendFactor, DestAlpha, RHIBlendFactor::Zero);
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, RHIBlendOp, AlphaOp, RHIBlendOp::Add);
-            NEKO_PARAM_WITH_DEFAULT(RHIRenderTarget, RHIColorComponent, WriteMask, RHIColorComponent::All);
+            NEKO_PARAM_WITH_DEFAULT(bool, BlendEnable, false);
+            NEKO_PARAM_WITH_DEFAULT(RHIBlendFactor, SrcColor, RHIBlendFactor::One);
+            NEKO_PARAM_WITH_DEFAULT(RHIBlendFactor, DestColor, RHIBlendFactor::Zero);
+            NEKO_PARAM_WITH_DEFAULT(RHIBlendOp, ColorOp, RHIBlendOp::Add);
+            NEKO_PARAM_WITH_DEFAULT(RHIBlendFactor, SrcAlpha, RHIBlendFactor::One);
+            NEKO_PARAM_WITH_DEFAULT(RHIBlendFactor, DestAlpha, RHIBlendFactor::Zero);
+            NEKO_PARAM_WITH_DEFAULT(RHIBlendOp, AlphaOp, RHIBlendOp::Add);
+            NEKO_PARAM_WITH_DEFAULT(RHIColorComponent, WriteMask, RHIColorComponent::All);
         };
 
         RHIRenderTarget renderTargets[MAX_RENDER_TARGET_COUNT];
@@ -241,14 +241,14 @@ namespace neko
     
     struct  RHIBindingLayoutBinding
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIBindingLayoutBinding, uint8_t, Binding, 0);
-        NEKO_PARAM_WITH_DEFAULT(RHIBindingLayoutBinding, RHIResourceType, ResourceType, RHIResourceType::UniformBuffer);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
+        NEKO_PARAM_WITH_DEFAULT(RHIResourceType, ResourceType, RHIResourceType::UniformBuffer);
     };
 
     struct RHIBindingLayoutDesc
     {
-        NEKO_PARAM_ARRAY(RHIBindingLayoutDesc, RHIBindingLayoutBinding, Binding, MAX_BINDINGS_PER_LAYOUT);// 256 bytes
-        NEKO_PARAM_WITH_DEFAULT(RHIBindingLayoutDesc, RHIShaderStage, ShaderStage, RHIShaderStage::All);// 1 byte
+        NEKO_PARAM_ARRAY(RHIBindingLayoutBinding, Binding, MAX_BINDINGS_PER_LAYOUT);// 256 bytes
+        NEKO_PARAM_WITH_DEFAULT(RHIShaderStage, ShaderStage, RHIShaderStage::All);// 1 byte
        
     };
         
@@ -263,17 +263,17 @@ namespace neko
 
     struct RHIGraphicPipelineDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHIPrimitiveTopology, PrimitiveTopology, RHIPrimitiveTopology::TriangleList);
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHISampleCount, SampleCount, RHISampleCount::SampleCount_1);
+        NEKO_PARAM_WITH_DEFAULT(RHIPrimitiveTopology, PrimitiveTopology, RHIPrimitiveTopology::TriangleList);
+        NEKO_PARAM_WITH_DEFAULT(RHISampleCount, SampleCount, RHISampleCount::SampleCount_1);
         
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHIShaderRef, VertexShader, RHIShaderRef());
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHIShaderRef, PixelShader, RHIShaderRef());
+        NEKO_PARAM_WITH_DEFAULT(RHIShaderRef, VertexShader, RHIShaderRef());
+        NEKO_PARAM_WITH_DEFAULT(RHIShaderRef, PixelShader, RHIShaderRef());
         
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHIVertexInputLayout, VertexInputLayout, RHIVertexInputLayout());
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHIRasterSate, RasterState, RHIRasterSate());
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHIDepthStencilState, DepthStencilState, RHIDepthStencilState());
-        NEKO_PARAM_WITH_DEFAULT(RHIGraphicPipelineDesc, RHIBlendState, BlendState, RHIBlendState());
-        NEKO_PARAM_ARRAY(RHIGraphicPipelineDesc, RHIBindingLayoutRef, BindingLayout, MAX_BINDING_LAYOUT_COUNT);
+        NEKO_PARAM_WITH_DEFAULT(RHIVertexInputLayout, VertexInputLayout, RHIVertexInputLayout());
+        NEKO_PARAM_WITH_DEFAULT(RHIRasterSate, RasterState, RHIRasterSate());
+        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, DepthStencilState, RHIDepthStencilState());
+        NEKO_PARAM_WITH_DEFAULT(RHIBlendState, BlendState, RHIBlendState());
+        NEKO_PARAM_ARRAY(RHIBindingLayoutRef, BindingLayout, MAX_BINDING_LAYOUT_COUNT);
     };
     
     class RHIGraphicPipeline : public RHIResource
@@ -283,7 +283,7 @@ namespace neko
 
     struct RHICmdListDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(RHICmdListDesc, RHICmdQueueType, type, RHICmdQueueType::Graphic);
+        NEKO_PARAM_WITH_DEFAULT(RHICmdQueueType, type, RHICmdQueueType::Graphic);
     }; 
 
     class RHICmdList : public RHIResource
@@ -293,8 +293,8 @@ namespace neko
     
     struct RHISwapChainDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(RHISwapChainDesc, RHIFormat, Format, RHIFormat::Undefined);
-        NEKO_PARAM_WITH_DEFAULT(RHISwapChainDesc, bool, VSync, true);
+        NEKO_PARAM_WITH_DEFAULT(RHIFormat, Format, RHIFormat::Undefined);
+        NEKO_PARAM_WITH_DEFAULT(bool, VSync, true);
     };
 
     class RHISwapChain : public RHIResource
@@ -318,16 +318,16 @@ namespace neko
 
     struct RHIFeatures
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIFeatures, bool, Swapchain, false);
+        NEKO_PARAM_WITH_DEFAULT(bool, Swapchain, false);
     };
 
     struct RHIDeviceDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(RHIDeviceDesc, bool, Validation, false);
-        NEKO_PARAM_WITH_DEFAULT(RHIDeviceDesc, uint32_t, GpuIndex, 0);
-        NEKO_PARAM_WITH_DEFAULT(RHIDeviceDesc, RHIFeatures, Features, RHIFeatures());
+        NEKO_PARAM_WITH_DEFAULT(bool, Validation, false);
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, GpuIndex, 0);
+        NEKO_PARAM_WITH_DEFAULT(RHIFeatures, Features, RHIFeatures());
 #ifdef NEKO_VULKAN
-        NEKO_PARAM_WITH_DEFAULT(RHIDeviceDesc, RHIVulkanDesc, VulkanDesc, RHIVulkanDesc());
+        NEKO_PARAM_WITH_DEFAULT(RHIVulkanDesc, VulkanDesc, RHIVulkanDesc());
 #endif
     };
 
