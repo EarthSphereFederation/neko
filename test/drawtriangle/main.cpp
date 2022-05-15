@@ -10,6 +10,10 @@ int main(int, char**) {
         printf("GLFW initialization failed.\n");
         return 0;
     }
+    else
+    {
+        printf("GLFW initialization successfully!\n");
+    }
 
     uint32_t SurfaceExtensionCount;
     const char** SurfaceExtensionNames = glfwGetRequiredInstanceExtensions(&SurfaceExtensionCount);
