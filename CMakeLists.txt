@@ -9,12 +9,11 @@ if(BACKEND_VK)
     add_definitions(-DNEKO_VULKAN)
 endif(BACKEND_VK)
 
-add_library(neko main.cpp)
-set_target_properties(neko PROPERTIES CXX_STANDARD 17)
-set_target_properties(neko PROPERTIES CXX_STANDARD_REQUIRED ON)
-target_link_libraries(neko neko_vulkan) 
-include_directories(include)
-add_subdirectory(source)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+add_subdirectory(src)
 add_subdirectory(test)
 
 set(GLFW_BUILD_DOCS False)

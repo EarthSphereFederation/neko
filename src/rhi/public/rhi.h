@@ -6,35 +6,38 @@
 #include <assert.h>
 #include "resource.h"
 #include "container.h"
-namespace neko
+namespace neko::rhi
 {
 #define CHECK(result) assert(result);
-#define CHECK_F(result,fmt,...) printf(fmt,__VA_ARGS__);assert(result);
+#define CHECK_F(result, fmt, ...) \
+    printf(fmt, __VA_ARGS__);     \
+    assert(result);
 
-#define NEKO_ENUM_CLASS_FLAG_OPERATORS(T) \
-    inline T operator | (T a, T b) { return T(uint32_t(a) | uint32_t(b)); } \
-    inline T operator & (T a, T b) { return T(uint32_t(a) & uint32_t(b)); } \
-    inline T operator ~ (T a) { return T(~uint32_t(a)); } \
-    inline bool operator !(T a) { return uint32_t(a) == 0; } \
-    inline bool operator ==(T a, uint32_t b) { return uint32_t(a) == b; } \
-    inline bool operator !=(T a, uint32_t b) { return uint32_t(a) != b; }
+#define NEKO_ENUM_CLASS_FLAG_OPERATORS(T)                                 \
+    inline T operator|(T a, T b) { return T(uint32_t(a) | uint32_t(b)); } \
+    inline T operator&(T a, T b) { return T(uint32_t(a) & uint32_t(b)); } \
+    inline T operator~(T a) { return T(~uint32_t(a)); }                   \
+    inline bool operator!(T a) { return uint32_t(a) == 0; }               \
+    inline bool operator==(T a, uint32_t b) { return uint32_t(a) == b; }  \
+    inline bool operator!=(T a, uint32_t b) { return uint32_t(a) != b; }
 
-#define NEKO_PARAM_WITH_DEFAULT(ParamType,Param,Default) \
-        ParamType Param = Default; \
-        auto& Set##Param(const ParamType& value) \
-        { \
-            Param = value;\
-            return *this; \
-        } \
-       
+#define NEKO_PARAM_WITH_DEFAULT(ParamType, Param, Default) \
+    ParamType Param = Default;                             \
+    using _rhi##Param##Type = ParamType;                   \
+    auto &Set##Param(const _rhi##Param##Type &value)       \
+    {                                                      \
+        Param = value;                                     \
+        return *this;                                      \
+    }
 
-#define NEKO_PARAM_ARRAY(ParamType,Param,Size) \
-        static_vector<ParamType,Size> Param##Array; \
-        auto& Add##Param(const ParamType& value) \
-        { \
-            Param##Array.push_back(value);\
-            return *this; \
-        } \
+#define NEKO_PARAM_ARRAY(ParamType, Param, Size)     \
+    static_vector<ParamType, Size> Param##Array;     \
+    using _rhi##Param##Type = ParamType;             \
+    auto &Add##Param(const _rhi##Param##Type &value) \
+    {                                                \
+        Param##Array.push_back(value);               \
+        return *this;                                \
+    }
 
     constexpr uint32_t MAX_RENDER_TARGET_COUNT = 8;
     constexpr uint32_t MAX_VERTEX_ATTRIBUTE_COUNT = 15;
@@ -42,13 +45,13 @@ namespace neko
     constexpr uint32_t MAX_BINDING_LAYOUT_COUNT = 5;
     constexpr uint32_t MAX_BINDINGS_PER_LAYOUT = 128;
     constexpr uint32_t MAX_SHADER_STAGE_COUNT = 2; // vs,ps
-    
+
     enum class RHIFormat : uint8_t
     {
         B8G8R8A8_SNORM,
         Undefined
     };
-    
+
     enum class RHICmdQueueType : uint8_t
     {
         Graphic = 0x1,
@@ -152,12 +155,12 @@ namespace neko
     {
         Clear
     };
-     
+
     struct RHIShaderDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(const char*, DebugName, "");
-        NEKO_PARAM_WITH_DEFAULT(const char*, Blob, "");
-        NEKO_PARAM_WITH_DEFAULT(const char*, EntryPoint, "");
+        NEKO_PARAM_WITH_DEFAULT(const char *, DebugName, "");
+        NEKO_PARAM_WITH_DEFAULT(const char *, Blob, "");
+        NEKO_PARAM_WITH_DEFAULT(const char *, EntryPoint, "");
         NEKO_PARAM_WITH_DEFAULT(RHIShaderStage, Stage, RHIShaderStage::All);
         NEKO_PARAM_WITH_DEFAULT(uint32_t, Size, 0);
     };
@@ -165,14 +168,14 @@ namespace neko
     class RHIShader : public RHIResource
     {
     public:
-        virtual const RHIShaderDesc& GetDesc() const = 0;
+        virtual const RHIShaderDesc &GetDesc() const = 0;
     };
     typedef RefCountPtr<RHIShader> RHIShaderRef;
 
     struct RHIVertexAttribute
     {
         NEKO_PARAM_WITH_DEFAULT(RHIFormat, Format, RHIFormat::Undefined);
-        NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding,0);
+        NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Location, 0);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Offset, 0);
     };
@@ -191,7 +194,7 @@ namespace neko
         NEKO_PARAM_WITH_DEFAULT(uint8_t, AttributeCount, 0);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Unused, 0);
     };
-        
+
     struct RHIRasterSate
     {
         NEKO_PARAM_WITH_DEFAULT(RHICullMode, CullMode, RHICullMode::Back);
@@ -236,10 +239,14 @@ namespace neko
         };
 
         RHIRenderTarget renderTargets[MAX_RENDER_TARGET_COUNT];
-        RHIBlendState& SetRenderTarget(uint32_t index, const RHIRenderTarget& target) { renderTargets[index] = target; return *this; }
+        RHIBlendState &SetRenderTarget(uint32_t index, const RHIRenderTarget &target)
+        {
+            renderTargets[index] = target;
+            return *this;
+        }
     };
-    
-    struct  RHIBindingLayoutBinding
+
+    struct RHIBindingLayoutBinding
     {
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
         NEKO_PARAM_WITH_DEFAULT(RHIResourceType, ResourceType, RHIResourceType::UniformBuffer);
@@ -247,16 +254,15 @@ namespace neko
 
     struct RHIBindingLayoutDesc
     {
-        NEKO_PARAM_ARRAY(RHIBindingLayoutBinding, Binding, MAX_BINDINGS_PER_LAYOUT);// 256 bytes
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderStage, ShaderStage, RHIShaderStage::All);// 1 byte
-       
+        NEKO_PARAM_ARRAY(RHIBindingLayoutBinding, Binding, MAX_BINDINGS_PER_LAYOUT); // 256 bytes
+        NEKO_PARAM_WITH_DEFAULT(RHIShaderStage, ShaderStage, RHIShaderStage::All);   // 1 byte
     };
-        
-    class RHIBindingLayout  : public RHIResource
+
+    class RHIBindingLayout : public RHIResource
     {
     };
     typedef RefCountPtr<RHIBindingLayout> RHIBindingLayoutRef;
-  
+
     class RHIFrameBuffer : public RHIResource
     {
     };
@@ -265,17 +271,17 @@ namespace neko
     {
         NEKO_PARAM_WITH_DEFAULT(RHIPrimitiveTopology, PrimitiveTopology, RHIPrimitiveTopology::TriangleList);
         NEKO_PARAM_WITH_DEFAULT(RHISampleCount, SampleCount, RHISampleCount::SampleCount_1);
-        
+
         NEKO_PARAM_WITH_DEFAULT(RHIShaderRef, VertexShader, RHIShaderRef());
         NEKO_PARAM_WITH_DEFAULT(RHIShaderRef, PixelShader, RHIShaderRef());
-        
+
         NEKO_PARAM_WITH_DEFAULT(RHIVertexInputLayout, VertexInputLayout, RHIVertexInputLayout());
         NEKO_PARAM_WITH_DEFAULT(RHIRasterSate, RasterState, RHIRasterSate());
         NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, DepthStencilState, RHIDepthStencilState());
         NEKO_PARAM_WITH_DEFAULT(RHIBlendState, BlendState, RHIBlendState());
         NEKO_PARAM_ARRAY(RHIBindingLayoutRef, BindingLayout, MAX_BINDING_LAYOUT_COUNT);
     };
-    
+
     class RHIGraphicPipeline : public RHIResource
     {
     };
@@ -284,13 +290,13 @@ namespace neko
     struct RHICmdListDesc
     {
         NEKO_PARAM_WITH_DEFAULT(RHICmdQueueType, type, RHICmdQueueType::Graphic);
-    }; 
+    };
 
     class RHICmdList : public RHIResource
     {
     };
     typedef RefCountPtr<RHICmdList> RHICmdListRef;
-    
+
     struct RHISwapChainDesc
     {
         NEKO_PARAM_WITH_DEFAULT(NativeObject, Surface, nullptr);
@@ -302,8 +308,6 @@ namespace neko
     {
     };
     typedef RefCountPtr<RHISwapchain> RHISwapchainRef;
-
-
 
     struct RHIFeatures
     {
@@ -319,9 +323,9 @@ namespace neko
 #ifdef NEKO_VULKAN
         struct RHIVulkanDesc
         {
-            const char** InstanceExtensions = nullptr;
+            const char **InstanceExtensions = nullptr;
             uint32_t InstanceExtensionNum = 0;
-            RHIVulkanDesc& SetInstanceExtensions(const char** extensions, uint32_t num)
+            RHIVulkanDesc &SetInstanceExtensions(const char **extensions, uint32_t num)
             {
                 InstanceExtensions = extensions;
                 InstanceExtensionNum = num;
@@ -339,17 +343,18 @@ namespace neko
 
     class RHIDevice : public RHIResource
     {
-   
+
     public:
-        [[nodiscard]] virtual RHICmdListRef CreateCmdList(const RHICmdListDesc& = RHICmdListDesc()) const = 0;
+        [[nodiscard]] virtual RHICmdListRef CreateCmdList(const RHICmdListDesc & = RHICmdListDesc()) const = 0;
 
         [[nodiscard]] virtual RHIShaderRef CreateShader(const RHIShaderDesc &) const = 0;
 
-        [[nodiscard]] virtual RHIGraphicPipelineRef CreateGraphicPipeline(const RHIGraphicPipelineDesc&, const RHIFrameBuffer&) const = 0;
+        [[nodiscard]] virtual RHIGraphicPipelineRef CreateGraphicPipeline(const RHIGraphicPipelineDesc &, const RHIFrameBuffer &) const = 0;
 
-        [[nodiscard]] virtual RHIBindingLayoutRef CreateBindingLayout(const RHIBindingLayoutDesc& desc) const = 0;
-        
-        [[nodiscard]] virtual RHISwapchainRef CreateSwapChain(const RHISwapChainDesc& desc) const = 0;
+        [[nodiscard]] virtual RHIBindingLayoutRef CreateBindingLayout(const RHIBindingLayoutDesc &desc) const = 0;
+
+        [[nodiscard]] virtual RHISwapchainRef CreateSwapChain(const RHISwapChainDesc &desc) const = 0;
+
     public:
 #ifdef NEKO_VULKAN
         [[nodiscard]] virtual NativeObject GetVkInstance() const = 0;
@@ -357,6 +362,6 @@ namespace neko
     };
 
     typedef RefCountPtr<RHIDevice> RHIDeviceRef;
-    
-    extern RHIDeviceRef CreateDevice(const RHIDeviceDesc& desc);
+
+    extern RHIDeviceRef CreateDevice(const RHIDeviceDesc &desc);
 }

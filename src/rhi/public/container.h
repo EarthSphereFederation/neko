@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 #include <assert.h>
-namespace neko
+namespace neko::rhi
 {
     // from nvrhi
     // a static vector is a vector with a capacity defined at compile-time
@@ -9,32 +9,34 @@ namespace neko
     struct static_vector : private std::array<T, _max_elements>
     {
         typedef std::array<T, _max_elements> base;
-        enum { max_elements = _max_elements };
+        enum
+        {
+            max_elements = _max_elements
+        };
 
-        using typename base::value_type;
-        using typename base::size_type;
-        using typename base::difference_type;
-        using typename base::reference;
-        using typename base::const_reference;
-        using typename base::pointer;
-        using typename base::const_pointer;
-        using typename base::iterator;
         using typename base::const_iterator;
+        using typename base::const_pointer;
+        using typename base::const_reference;
+        using typename base::difference_type;
+        using typename base::iterator;
+        using typename base::pointer;
+        using typename base::reference;
+        using typename base::size_type;
+        using typename base::value_type;
         // xxxnsubtil: reverse iterators not implemented
 
         static_vector()
-            : base()
-            , current_size(0)
-        { }
+            : base(), current_size(0)
+        {
+        }
 
         static_vector(size_t size)
-            : base()
-            , current_size(size)
+            : base(), current_size(size)
         {
             assert(size <= max_elements);
         }
 
-        static_vector(const static_vector& other) = default;
+        static_vector(const static_vector &other) = default;
 
         static_vector(std::initializer_list<T> il)
             : current_size(0)
@@ -45,13 +47,13 @@ namespace neko
 
         using base::at;
 
-        reference operator[] (size_type pos)
+        reference operator[](size_type pos)
         {
             assert(pos < current_size);
             return base::operator[](pos);
         }
 
-        const_reference operator[] (size_type pos) const
+        const_reference operator[](size_type pos) const
         {
             assert(pos < current_size);
             return base::operator[](pos);
@@ -59,12 +61,22 @@ namespace neko
 
         using base::front;
 
-        reference back() noexcept { auto tmp = end(); --tmp; return *tmp; }
-        const_reference back() const noexcept { auto tmp = cend(); --tmp; return *tmp; }
+        reference back() noexcept
+        {
+            auto tmp = end();
+            --tmp;
+            return *tmp;
+        }
+        const_reference back() const noexcept
+        {
+            auto tmp = cend();
+            --tmp;
+            return *tmp;
+        }
 
-        using base::data;
         using base::begin;
         using base::cbegin;
+        using base::data;
 
         iterator end() noexcept { return iterator(begin()) + current_size; }
         const_iterator end() const noexcept { return cend(); }
@@ -74,26 +86,26 @@ namespace neko
         size_t size() const noexcept { return current_size; }
         constexpr size_t max_size() const noexcept { return max_elements; }
 
-        void fill(const T& value) noexcept
+        void fill(const T &value) noexcept
         {
             base::fill(value);
             current_size = max_elements;
         }
 
-        void swap(static_vector& other) noexcept
+        void swap(static_vector &other) noexcept
         {
             base::swap(*this);
             std::swap(current_size, other.current_size);
         }
 
-        void push_back(const T& value) noexcept
+        void push_back(const T &value) noexcept
         {
             assert(current_size < max_elements);
             *(data() + current_size) = value;
             current_size++;
         }
 
-        void push_back(T&& value) noexcept
+        void push_back(T &&value) noexcept
         {
             assert(current_size < max_elements);
             *(data() + current_size) = std::move(value);

@@ -1,8 +1,8 @@
 #include <iostream>
-#include "neko.h"
+#include "../../src/rhi/public/rhi.h"
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
-using namespace neko;
+using namespace neko::rhi;
 
 int main(int, char**) {
     if (!glfwInit())

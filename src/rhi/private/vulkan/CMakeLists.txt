@@ -2,10 +2,10 @@ cmake_policy(SET CMP0076 NEW)
 
 find_package(Vulkan REQUIRED)
 
-add_library(neko_vulkan)
-target_link_libraries(neko_vulkan PRIVATE Vulkan::Vulkan)
+add_library(neko_rhi_vulkan)
+target_link_libraries(neko_rhi_vulkan PRIVATE Vulkan::Vulkan)
 target_sources(
-    neko_vulkan PRIVATE
+    neko_rhi_vulkan PRIVATE
     backend.h
     device.cpp
     cmdlist.cpp

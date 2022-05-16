@@ -2,8 +2,8 @@
 #include <assert.h>
 #include <vector>
 #include <map>
-#pragma warning(disable:26812)
-namespace neko
+#pragma warning(disable : 26812)
+namespace neko::rhi
 {
     namespace vk
     {
@@ -21,16 +21,16 @@ namespace neko
             }
         }
 
-        VulkanDevice::VulkanDevice() :Context(new VulkanContext())
+        VulkanDevice::VulkanDevice() : Context(new VulkanContext())
         {
-        }  
-        bool VulkanDevice::Initalize(const RHIDeviceDesc& desc)
+        }
+        bool VulkanDevice::Initalize(const RHIDeviceDesc &desc)
         {
             VkApplicationInfo ApplicationInfo = {};
             ApplicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
             ApplicationInfo.apiVersion = VK_MAKE_VERSION(1, 3, 0);
 
-            const char* LayerNames[] = { "VK_LAYER_KHRONOS_validation" };
+            const char *LayerNames[] = {"VK_LAYER_KHRONOS_validation"};
             VkInstanceCreateInfo InstanceCreateInfo = {};
             InstanceCreateInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
             InstanceCreateInfo.pApplicationInfo = &ApplicationInfo;
@@ -73,12 +73,11 @@ namespace neko
                 RHICmdQueueType Type;
                 VkQueueFamilyProperties2 Properties;
 
-                QueueData(int32_t familyIndex, RHICmdQueueType type, VkQueueFamilyProperties2 properties) :
-                    FamilyIndex(familyIndex), Type(type), Properties(properties) {}
+                QueueData(int32_t familyIndex, RHICmdQueueType type, VkQueueFamilyProperties2 properties) : FamilyIndex(familyIndex), Type(type), Properties(properties) {}
             };
             uint32_t UsedQueueFamliyMask = 0;
             std::vector<QueueData> QueueData;
-            //graphic
+            // graphic
             for (uint32_t q = 0; q < QueueFamilyCount; ++q)
             {
                 auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
@@ -88,7 +87,7 @@ namespace neko
                     UsedQueueFamliyMask |= (1 << q);
                 }
             }
-            //compute
+            // compute
             for (uint32_t q = 0; q < QueueFamilyCount; ++q)
             {
                 auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
@@ -98,7 +97,7 @@ namespace neko
                     UsedQueueFamliyMask |= (1 << q);
                 }
             }
-            //transfer
+            // transfer
             for (uint32_t q = 0; q < QueueFamilyCount; ++q)
             {
                 auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
@@ -112,11 +111,11 @@ namespace neko
             std::vector<VkDeviceQueueCreateInfo> QueueInfos = {};
             QueueInfos.resize(QueueData.size());
 
-            const float Priorities[] = { 1.0f };
+            const float Priorities[] = {1.0f};
             for (int32_t i = 0; i < QueueData.size(); ++i)
             {
-                auto& queueInfo = QueueInfos[i];
-                auto& queue = QueueData[i];
+                auto &queueInfo = QueueInfos[i];
+                auto &queue = QueueData[i];
                 queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
                 queueInfo.pNext = nullptr;
                 queueInfo.flags = 0;
@@ -125,7 +124,7 @@ namespace neko
                 queueInfo.pQueuePriorities = Priorities;
             }
 
-            std::vector<const char*> Extensions;
+            std::vector<const char *> Extensions;
             if (desc.Features.Swapchain)
             {
                 Extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -137,7 +136,7 @@ namespace neko
             Context->DeviceInfo.pNext = nullptr;
             Context->DeviceInfo.queueCreateInfoCount = (uint32_t)QueueInfos.size();
             Context->DeviceInfo.pQueueCreateInfos = QueueInfos.data(),
-                Context->DeviceInfo.enabledExtensionCount = (uint32_t)Extensions.size();
+            Context->DeviceInfo.enabledExtensionCount = (uint32_t)Extensions.size();
             Context->DeviceInfo.ppEnabledExtensionNames = Extensions.data();
             Context->DeviceInfo.pEnabledFeatures = &Features;
             Context->DeviceInfo.enabledLayerCount = 0;
@@ -145,8 +144,8 @@ namespace neko
             Context->DeviceInfo.flags = 0;
 
             VK_CHECK_RETURN_FALSE(vkCreateDevice(Context->PhysicalDevice, &Context->DeviceInfo, nullptr, &Context->Device), "failed to create device");
-            
-            for (auto& q : QueueData)
+
+            for (auto &q : QueueData)
             {
                 Queues.push_back(new VulkanQueue(Context, q.FamilyIndex, q.Type, q.Properties));
             }
@@ -160,7 +159,7 @@ namespace neko
         }
     }
 
-    RHIDeviceRef CreateDevice(const RHIDeviceDesc& desc)
+    RHIDeviceRef CreateDevice(const RHIDeviceDesc &desc)
     {
         auto DeviceRef = RefCountPtr<vk::VulkanDevice>(new vk::VulkanDevice());
         if (!DeviceRef->Initalize(desc))
