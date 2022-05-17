@@ -1,18 +1,37 @@
 #include "backend.h"
 
 #pragma warning(disable : 26812)
-namespace neko::rhi::vk
+namespace Neko::RHI::Vulkan
 {
-	VulkanGraphicPipeline::VulkanGraphicPipeline(const VulkanContextPtr &ctx, const RHIGraphicPipelineDesc &Desc) : context(ctx), Desc(Desc)
+	FGraphicPipeline::FGraphicPipeline(const VulkanContextPtr &ctx, const RHIGraphicPipelineDesc &Desc) : Context(ctx), Desc(Desc)
 	{
 	}
 
-	VulkanGraphicPipeline::~VulkanGraphicPipeline()
+	FGraphicPipeline::~FGraphicPipeline()
 	{
+		if (RenderPass)
+		{
+			vkDestroyRenderPass(Context->Device, RenderPass, Context->AllocationCallbacks);
+			RenderPass = nullptr;
+		}
+
+		if (PipelineLayout)
+		{
+			vkDestroyPipelineLayout(Context->Device, PipelineLayout, Context->AllocationCallbacks);
+			PipelineLayout = nullptr;
+		}
+
+		if (Pipeline)
+		{
+			vkDestroyPipeline(Context->Device, Pipeline, Context->AllocationCallbacks);
+			Pipeline = nullptr;
+		}
 	}
 
-	bool VulkanGraphicPipeline::Initalize()
+	bool FGraphicPipeline::Initalize(const RHIFrameBufferInfo& FrameBufferInfo)
 	{
+
+		uint32_t RTCount = (uint32_t)FrameBufferInfo.FormatArray.size();
 		static_vector<VkPipelineShaderStageCreateInfo, MAX_SHADER_STAGE_COUNT> ShaderStages;
 
 		static_vector<RHIShaderRef, MAX_SHADER_STAGE_COUNT> Shaders;
@@ -26,7 +45,7 @@ namespace neko::rhi::vk
 				VkPipelineShaderStageCreateInfo ShaderStageInfo = {};
 				ShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 				ShaderStageInfo.stage = ConvertToVkShaderStageFlags(shader->GetDesc().Stage);
-				ShaderStageInfo.module = reinterpret_cast<VulkanShader *>(shader.GetPtr())->GetVkShaderModule();
+				ShaderStageInfo.module = reinterpret_cast<FShader *>(shader.GetPtr())->GetVkShaderModule();
 				ShaderStageInfo.pName = shader->GetDesc().EntryPoint;
 				ShaderStages.push_back(ShaderStageInfo);
 			}
@@ -130,7 +149,7 @@ namespace neko::rhi::vk
 
 		static_vector<VkPipelineColorBlendAttachmentState, MAX_RENDER_TARGET_COUNT> ColorBlendAttachmentStates;
 
-		for (int i = 0; i < MAX_RENDER_TARGET_COUNT; ++i)
+		for (uint32_t i = 0; i < RTCount; ++i)
 		{
 			auto rt = Desc.BlendState.renderTargets[i];
 			VkPipelineColorBlendAttachmentState ColorBlendAttachment = {};
@@ -169,24 +188,92 @@ namespace neko::rhi::vk
 		PipelineLayoutInfo.pSetLayouts = Desc.BindingLayoutArray.size() > 0 ? DescriptorSetLayouts.data() : nullptr; // Optional
 		PipelineLayoutInfo.pushConstantRangeCount = 0;
 		PipelineLayoutInfo.pPushConstantRanges = nullptr;
+		
+		vkCreatePipelineLayout(Context->Device, &PipelineLayoutInfo, Context->AllocationCallbacks, &PipelineLayout);
+
+		static_vector<VkAttachmentDescription, MAX_RENDER_TARGET_COUNT> ColorAttachments;
+		static_vector<VkAttachmentReference, MAX_RENDER_TARGET_COUNT> ColorAttachmentRefs;
+
+		for (uint32_t i = 0; i < FrameBufferInfo.FormatArray.size(); ++i)
+		{
+			VkAttachmentDescription Attachment = {};
+			Attachment.format = ConvertToVkFormat(FrameBufferInfo.FormatArray[i]);
+			Attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+			Attachment.loadOp = ConvertToVkAttachmentLoadOp(FrameBufferInfo.LoadActionArray[i]);
+			Attachment.storeOp = ConvertToVkVkAttachmentStoreOp(FrameBufferInfo.StoreActionArray[i]);
+			Attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+			Attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+			Attachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+			Attachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
+			ColorAttachments.push_back(Attachment);
+
+			VkAttachmentReference Ref = {};
+			Ref.attachment = i;
+			Ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+			ColorAttachmentRefs.push_back(Ref);
+		}
+
+		VkSubpassDescription Subpass = {};
+		Subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+		Subpass.colorAttachmentCount = (uint32_t)ColorAttachmentRefs.size();
+		Subpass.pColorAttachments = ColorAttachmentRefs.data();
+
+		VkSubpassDependency Dependency = {};
+		Dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		Dependency.dstSubpass = 0;
+		Dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		Dependency.srcAccessMask = 0;
+		Dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		Dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		
+		VkRenderPassCreateInfo renderPassInfo = {};
+		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+		renderPassInfo.attachmentCount = (uint32_t)ColorAttachments.size();
+		renderPassInfo.pAttachments = ColorAttachments.data();
+		renderPassInfo.subpassCount = 1;
+		renderPassInfo.pSubpasses = &Subpass;
+		renderPassInfo.dependencyCount = 1;
+		renderPassInfo.pDependencies = &Dependency;
+
+		VK_CHECK_RETURN_FALSE(vkCreateRenderPass(Context->Device, &renderPassInfo, Context->AllocationCallbacks, &RenderPass), "failed to create render pass");
+
+		VkDynamicState DynamicStates[4] = {
+			VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT,
+			VkDynamicState::VK_DYNAMIC_STATE_SCISSOR,
+		};
+
+		VkPipelineDynamicStateCreateInfo DynamicStateCreateInfo = {};
+		DynamicStateCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+		DynamicStateCreateInfo.dynamicStateCount = 2;
+		DynamicStateCreateInfo.pDynamicStates = DynamicStates;
 
 		VkGraphicsPipelineCreateInfo PipelineInfo = {};
 		PipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-		// shader
 		PipelineInfo.stageCount = (uint32_t)ShaderStages.size();
 		PipelineInfo.pStages = ShaderStages.data();
-		// vertex input layout
 		PipelineInfo.pVertexInputState = &VertexInputInfo;
+		PipelineInfo.pInputAssemblyState = &InputAssembly;
+		PipelineInfo.pViewportState = &ViewportState;
+		PipelineInfo.pRasterizationState = &Rasterizer;
+		PipelineInfo.pMultisampleState = &Multisampling;
+		PipelineInfo.pDepthStencilState = &DepthStencilState;
+		PipelineInfo.pColorBlendState = &ColorBlending;
+		PipelineInfo.pDynamicState = &DynamicStateCreateInfo; 
+		PipelineInfo.layout = PipelineLayout;
+		PipelineInfo.renderPass = RenderPass;
+		PipelineInfo.subpass = 0;
+		PipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+		PipelineInfo.basePipelineIndex = -1; 
 
-		// TODO impl
-		CHECK(false)
+		VK_CHECK_RETURN_FALSE(vkCreateGraphicsPipelines(Context->Device, VK_NULL_HANDLE, 1, &PipelineInfo, Context->AllocationCallbacks, &Pipeline), "failed to create graphics pipeline");
+
 		return true;
 	}
 
-	RHIGraphicPipelineRef VulkanDevice::CreateGraphicPipeline(const RHIGraphicPipelineDesc &pipelineDesc, const RHIFrameBuffer &) const
+	RHIGraphicPipelineRef FDevice::CreateGraphicPipeline(const RHIGraphicPipelineDesc &pipelineDesc, const RHIFrameBufferRef & FrameBuffer) const
 	{
-		auto Pipeline = RefCountPtr<vk::VulkanGraphicPipeline>(new VulkanGraphicPipeline(Context, pipelineDesc));
-		if (!Pipeline->Initalize())
+		auto Pipeline = RefCountPtr<FGraphicPipeline>(new FGraphicPipeline(Context, pipelineDesc));
+		if (!Pipeline->Initalize(FrameBuffer->GetInfo()))
 		{
 			Pipeline = nullptr;
 		}

@@ -1,11 +1,11 @@
 #pragma once
-#include "rhi.h"
+#include "RHI.h"
 #include <vulkan/vulkan.h>
 #include <stdio.h>
 #include <stdexcept>
 #include <iostream>
 #pragma warning(disable : 26812)
-namespace neko::rhi::vk
+namespace Neko::RHI::Vulkan
 {
 #define VK_CHECK_F(result, fmt, ...) \
 	if (result)                      \
@@ -25,19 +25,19 @@ namespace neko::rhi::vk
 
 	constexpr uint32_t MAX_VULKAN_QUEUE_COUNT = 3;
 
-	inline VkShaderStageFlagBits ConvertToVkShaderStageFlags(const RHIShaderStage &stage)
+	inline VkShaderStageFlagBits ConvertToVkShaderStageFlags(const EShaderStage &stage)
 	{
 		switch (stage)
 		{
-		case RHIShaderStage::VS:
+		case EShaderStage::VS:
 		{
 			return VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		case RHIShaderStage::PS:
+		case EShaderStage::PS:
 		{
 			return VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
-		case RHIShaderStage::All:
+		case EShaderStage::All:
 		{
 			return VkShaderStageFlagBits::VK_SHADER_STAGE_ALL;
 		}
@@ -47,15 +47,15 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkVertexInputRate ConvertToVkVertexInputRate(const RHIVertexRate &rate)
+	inline VkVertexInputRate ConvertToVkVertexInputRate(const EVertexRate &rate)
 	{
 		switch (rate)
 		{
-		case RHIVertexRate::Instance:
+		case EVertexRate::Instance:
 		{
 			return VkVertexInputRate::VK_VERTEX_INPUT_RATE_INSTANCE;
 		}
-		case RHIVertexRate::Vertex:
+		case EVertexRate::Vertex:
 		{
 			return VkVertexInputRate::VK_VERTEX_INPUT_RATE_VERTEX;
 		}
@@ -65,13 +65,17 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkFormat ConvertToVkFormat(const RHIFormat &format)
+	inline VkFormat ConvertToVkFormat(const EFormat &format)
 	{
 		switch (format)
 		{
-		case RHIFormat::B8G8R8A8_SNORM:
+		case EFormat::B8G8R8A8_SNORM:
 		{
 			return VkFormat::VK_FORMAT_B8G8R8A8_SNORM;
+		}
+		case EFormat::B8G8R8A8_UNORM:
+		{
+			return VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
 		}
 		default:
 			CHECK(false);
@@ -79,11 +83,29 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkPrimitiveTopology ConvertToVkPrimitiveTopology(const RHIPrimitiveTopology &pt)
+	inline  EFormat ConvertFromVkFormat(const VkFormat& format)
+	{
+		switch (format)
+		{
+		case VkFormat::VK_FORMAT_B8G8R8A8_SNORM:
+		{
+			return EFormat::B8G8R8A8_SNORM;
+		}
+		case VkFormat::VK_FORMAT_B8G8R8A8_UNORM:
+		{
+			return EFormat::B8G8R8A8_UNORM;
+		}
+		default:
+			CHECK(false);
+			return EFormat::Undefined;
+		}
+	}
+
+	inline VkPrimitiveTopology ConvertToVkPrimitiveTopology(const EPrimitiveTopology &pt)
 	{
 		switch (pt)
 		{
-		case RHIPrimitiveTopology::TriangleList:
+		case EPrimitiveTopology::TriangleList:
 		{
 			return VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 		}
@@ -93,11 +115,11 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkPolygonMode ConvertToVkPolygonMode(const RHIPolygonMode &pm)
+	inline VkPolygonMode ConvertToVkPolygonMode(const EPolygonMode &pm)
 	{
 		switch (pm)
 		{
-		case RHIPolygonMode::Fill:
+		case EPolygonMode::Fill:
 		{
 			return VkPolygonMode::VK_POLYGON_MODE_FILL;
 		}
@@ -107,19 +129,19 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkCullModeFlagBits ConvertToVkCullModeFlagBits(const RHICullMode &cm)
+	inline VkCullModeFlagBits ConvertToVkCullModeFlagBits(const ECullMode &cm)
 	{
 		switch (cm)
 		{
-		case RHICullMode::None:
+		case ECullMode::None:
 		{
 			return VkCullModeFlagBits::VK_CULL_MODE_NONE;
 		}
-		case RHICullMode::Front:
+		case ECullMode::Front:
 		{
 			return VkCullModeFlagBits::VK_CULL_MODE_FRONT_BIT;
 		}
-		case RHICullMode::Back:
+		case ECullMode::Back:
 		{
 			return VkCullModeFlagBits::VK_CULL_MODE_BACK_BIT;
 		}
@@ -129,15 +151,15 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkFrontFace ConvertVkFrontFace(const RHIFrontFace &ff)
+	inline VkFrontFace ConvertVkFrontFace(const EFrontFace &ff)
 	{
 		switch (ff)
 		{
-		case RHIFrontFace::CW:
+		case EFrontFace::CW:
 		{
 			return VkFrontFace::VK_FRONT_FACE_CLOCKWISE;
 		}
-		case RHIFrontFace::CCW:
+		case EFrontFace::CCW:
 		{
 			return VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE;
 		}
@@ -147,27 +169,27 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkSampleCountFlagBits ConvertToVkSampleCountFlagBits(const RHISampleCount &sc)
+	inline VkSampleCountFlagBits ConvertToVkSampleCountFlagBits(const ESampleCount &sc)
 	{
 		switch (sc)
 		{
-		case RHISampleCount::SampleCount_1:
+		case ESampleCount::SampleCount_1:
 		{
 			return VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
 		}
-		case RHISampleCount::SampleCount_2:
+		case ESampleCount::SampleCount_2:
 		{
 			return VkSampleCountFlagBits::VK_SAMPLE_COUNT_2_BIT;
 		}
-		case RHISampleCount::SampleCount_4:
+		case ESampleCount::SampleCount_4:
 		{
 			return VkSampleCountFlagBits::VK_SAMPLE_COUNT_4_BIT;
 		}
-		case RHISampleCount::SampleCount_8:
+		case ESampleCount::SampleCount_8:
 		{
 			return VkSampleCountFlagBits::VK_SAMPLE_COUNT_8_BIT;
 		}
-		case RHISampleCount::SampleCount_16:
+		case ESampleCount::SampleCount_16:
 		{
 			return VkSampleCountFlagBits::VK_SAMPLE_COUNT_16_BIT;
 		}
@@ -177,11 +199,11 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkStencilOp ConvertToVkStencilOp(const RHIStencilOp &op)
+	inline VkStencilOp ConvertToVkStencilOp(const EStencilOp &op)
 	{
 		switch (op)
 		{
-		case RHIStencilOp::Keep:
+		case EStencilOp::Keep:
 		{
 			return VkStencilOp::VK_STENCIL_OP_KEEP;
 		}
@@ -191,19 +213,19 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkCompareOp ConvertToVkCompareOp(const RHICompareOp &op)
+	inline VkCompareOp ConvertToVkCompareOp(const ECompareOp &op)
 	{
 		switch (op)
 		{
-		case RHICompareOp::Never:
+		case ECompareOp::Never:
 		{
 			return VkCompareOp::VK_COMPARE_OP_NEVER;
 		}
-		case RHICompareOp::Less:
+		case ECompareOp::Less:
 		{
 			return VkCompareOp::VK_COMPARE_OP_LESS;
 		}
-		case RHICompareOp::Always:
+		case ECompareOp::Always:
 		{
 			return VkCompareOp::VK_COMPARE_OP_ALWAYS;
 		}
@@ -213,15 +235,15 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkBlendFactor ConvertToVkBlendFactor(const RHIBlendFactor &op)
+	inline VkBlendFactor ConvertToVkBlendFactor(const EBlendFactor &op)
 	{
 		switch (op)
 		{
-		case RHIBlendFactor::One:
+		case EBlendFactor::One:
 		{
 			return VkBlendFactor::VK_BLEND_FACTOR_ONE;
 		}
-		case RHIBlendFactor::Zero:
+		case EBlendFactor::Zero:
 		{
 			return VkBlendFactor::VK_BLEND_FACTOR_ZERO;
 		}
@@ -231,11 +253,11 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkBlendOp ConvertToVkBlendOp(const RHIBlendOp &op)
+	inline VkBlendOp ConvertToVkBlendOp(const EBlendOp &op)
 	{
 		switch (op)
 		{
-		case RHIBlendOp::Add:
+		case EBlendOp::Add:
 		{
 			return VkBlendOp::VK_BLEND_OP_ADD;
 		}
@@ -245,26 +267,26 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkColorComponentFlags ConvertToVkColorComponentFlags(const RHIColorComponent &op)
+	inline VkColorComponentFlags ConvertToVkColorComponentFlags(const EColorComponent &op)
 	{
 		VkColorComponentFlags ret = 0;
-		if ((op & RHIColorComponent::R) != 0)
+		if ((op & EColorComponent::R) != 0)
 		{
 			ret |= VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT;
 		}
-		if ((op & RHIColorComponent::G) != 0)
+		if ((op & EColorComponent::G) != 0)
 		{
 			ret |= VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT;
 		}
-		if ((op & RHIColorComponent::B) != 0)
+		if ((op & EColorComponent::B) != 0)
 		{
 			ret |= VkColorComponentFlagBits::VK_COLOR_COMPONENT_B_BIT;
 		}
-		if ((op & RHIColorComponent::A) != 0)
+		if ((op & EColorComponent::A) != 0)
 		{
 			ret |= VkColorComponentFlagBits::VK_COLOR_COMPONENT_A_BIT;
 		}
-		if ((op & RHIColorComponent::All) != 0)
+		if ((op & EColorComponent::All) != 0)
 		{
 			ret |= VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT;
 			ret |= VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT;
@@ -274,11 +296,11 @@ namespace neko::rhi::vk
 		return ret;
 	}
 
-	inline VkDescriptorType ConvertToVkDescriptorType(const RHIResourceType &rType)
+	inline VkDescriptorType ConvertToVkDescriptorType(const EResourceType &rType)
 	{
 		switch (rType)
 		{
-		case RHIResourceType::UniformBuffer:
+		case EResourceType::UniformBuffer:
 		{
 			return VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
 		}
@@ -288,17 +310,45 @@ namespace neko::rhi::vk
 		}
 	}
 
-	inline VkColorSpaceKHR ConvertToVkColorSpaceKHR(const RHIFormat &Format)
+	inline VkColorSpaceKHR ConvertToVkColorSpaceKHR(const EFormat &Format)
 	{
 		switch (Format)
 		{
-		case RHIFormat::B8G8R8A8_SNORM:
+		case EFormat::B8G8R8A8_SNORM:
 		{
 			return VkColorSpaceKHR::VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT;
 		}
 		default:
 			CHECK(false);
 			return VkColorSpaceKHR::VK_COLOR_SPACE_ADOBERGB_LINEAR_EXT;
+		}
+	}
+
+	inline VkAttachmentLoadOp ConvertToVkAttachmentLoadOp(const ELoadOp& Op)
+	{
+		switch (Op)
+		{
+		case ELoadOp::Load:
+		{
+			return VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_LOAD;
+		}
+		default:
+			CHECK(false);
+			return VkAttachmentLoadOp::VK_ATTACHMENT_LOAD_OP_LOAD;
+		}
+	}
+
+	inline VkAttachmentStoreOp ConvertToVkVkAttachmentStoreOp(const EStoreOp& Op)
+	{
+		switch (Op)
+		{
+		case EStoreOp::Store:
+		{
+			return VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
+		}
+		default:
+			CHECK(false);
+			return VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
 		}
 	}
 
@@ -318,7 +368,7 @@ namespace neko::rhi::vk
 	};
 	typedef RefCountPtr<VulkanContext> VulkanContextPtr;
 
-	class VulkanShader final : public RefCounter<RHIShader>
+	class FShader final : public RefCounter<RHIShader>
 	{
 	private:
 		const VulkanContextPtr Context;
@@ -326,8 +376,8 @@ namespace neko::rhi::vk
 		RHIShaderDesc Desc;
 
 	public:
-		VulkanShader(const VulkanContextPtr &ctx);
-		~VulkanShader();
+		FShader(const VulkanContextPtr &ctx);
+		~FShader();
 		bool Initalize(const RHIShaderDesc &desc);
 		virtual const RHIShaderDesc &GetDesc() const override { return Desc; }
 
@@ -335,7 +385,7 @@ namespace neko::rhi::vk
 		const VkShaderModule GetVkShaderModule() const { return ShaderModule; }
 	};
 
-	class VulkanCmdBuffer
+	class FCmdBuffer
 	{
 	private:
 		VkCommandPool CmdPool = nullptr;
@@ -343,70 +393,73 @@ namespace neko::rhi::vk
 		const VulkanContextPtr context;
 
 	public:
-		VulkanCmdBuffer(const VulkanContextPtr &ctx) : context(ctx) {}
-		~VulkanCmdBuffer();
-		friend class VulkanQueue;
+		FCmdBuffer(const VulkanContextPtr &ctx) : context(ctx) {}
+		~FCmdBuffer();
+		friend class FQueue;
 	};
-	typedef std::shared_ptr<VulkanCmdBuffer> VulkanCmdBufferPtr;
+	typedef std::shared_ptr<FCmdBuffer> VulkanCmdBufferPtr;
 
-	class VulkanQueue final : public RefCounter<RHIResource>
+	class FQueue final : public RefCounter<RHIResource>
 	{
 	private:
 		const VulkanContextPtr context;
 		uint32_t FamilyIndex;
-		RHICmdQueueType Type;
+		ECmdQueueType Type;
 		VkQueueFamilyProperties2 properties;
 
 		std::list<VulkanCmdBufferPtr> RunningCmdBuffers;
 		std::list<VulkanCmdBufferPtr> CmdBufferPool;
 
 	public:
-		VulkanQueue(const VulkanContextPtr &ctx, uint32_t queueFamliyIndex, RHICmdQueueType cmdType, VkQueueFamilyProperties2 properties);
-		~VulkanQueue();
-		RHICmdQueueType GetCmdQueueType() const { return Type; }
+		FQueue(const VulkanContextPtr &ctx, uint32_t queueFamliyIndex, ECmdQueueType cmdType, VkQueueFamilyProperties2 properties);
+		~FQueue();
+		ECmdQueueType GetCmdQueueType() const { return Type; }
 		uint32_t GetFamilyIndex() const { return FamilyIndex; }
 		VkQueueFamilyProperties2 GetFamilyProperties() const { return properties; }
 
 		VulkanCmdBufferPtr GetOrCreateCmdBuffer();
 		VulkanCmdBufferPtr CreateCmdBuffer();
 	};
-	typedef RefCountPtr<VulkanQueue> VulkanQueuePtr;
+	typedef RefCountPtr<FQueue> VulkanQueuePtr;
 
-	class VulkanGraphicPipeline final : public RefCounter<RHIGraphicPipeline>
+	class FGraphicPipeline final : public RefCounter<RHIGraphicPipeline>
 	{
 	private:
-		const VulkanContextPtr context;
+		const VulkanContextPtr Context;
 		RHIGraphicPipelineDesc Desc;
+		VkRenderPass RenderPass = nullptr;
+		VkPipelineLayout PipelineLayout = nullptr;
+		VkPipeline Pipeline = nullptr;
 
 	public:
-		VulkanGraphicPipeline(const VulkanContextPtr &, const RHIGraphicPipelineDesc &);
-		~VulkanGraphicPipeline();
+		FGraphicPipeline(const VulkanContextPtr &, const RHIGraphicPipelineDesc &);
+		~FGraphicPipeline();
 
-		bool Initalize();
+		bool Initalize(const RHIFrameBufferInfo&);
 	};
 
-	class VulkanCmdList final : public RefCounter<RHICmdList>
+	class FCmdList final : public RefCounter<RHICmdList>
 	{
 		VulkanCmdBufferPtr CmdBuf;
 		VulkanContextPtr Context;
 
 	public:
-		VulkanCmdList(const VulkanContextPtr &, const VulkanCmdBufferPtr &);
+		FCmdList(const VulkanContextPtr &, const VulkanCmdBufferPtr &);
 	};
 
-	class VulkanBindingLayout final : public RefCounter<RHIBindingLayout>
+	class FBindingLayout final : public RefCounter<RHIBindingLayout>
 	{
 		VkDescriptorSetLayout DescriptorSetLayout = nullptr;
 		VulkanContextPtr Context;
 
 	public:
-		VulkanBindingLayout(const VulkanContextPtr &);
-		~VulkanBindingLayout();
+		FBindingLayout(const VulkanContextPtr &);
+		~FBindingLayout();
 		bool Initalize(const RHIBindingLayoutDesc &desc);
 		virtual NativeObject GetNativeObject() const override { return DescriptorSetLayout; }
 	};
 
-	class VulkanSwapchain final : public RefCounter<RHISwapchain>
+	class FSwapchain final : public RefCounter<RHISwapchain>
 	{
 	private:
 		VkSwapchainKHR Swapchain = nullptr;
@@ -414,29 +467,49 @@ namespace neko::rhi::vk
 		std::vector<VkImage> Images;
 		std::vector<VkImageView> ImageViews;
 		VulkanContextPtr Context;
+		VkFormat Format = VkFormat::VK_FORMAT_UNDEFINED;
 
 	public:
-		VulkanSwapchain(const VulkanContextPtr &);
-		~VulkanSwapchain();
+		FSwapchain(const VulkanContextPtr &);
+		~FSwapchain();
 		bool Initalize(const RHISwapChainDesc &Desc);
+
+		VkFormat GetFormat() const { return Format; }
+		VkImage GetImage(uint32_t Index) const { CHECK(Index < ImageCount); return Images[Index]; }
+		VkImageView GetImageView(uint32_t Index) const { CHECK(Index < ImageCount); return ImageViews[Index]; }
+
+		virtual RHIFrameBufferRef GetFrameBuffer(uint32_t) const override;
 	};
 
-	class VulkanDevice final : public RefCounter<RHIDevice>
+	class FFrameBuffer final : public RefCounter<RHIFrameBuffer>
+	{
+	private:
+		RHIFrameBufferInfo Info;
+	public:
+		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkImage, Image, MAX_RENDER_TARGET_COUNT);
+		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkImageView, ImageView, MAX_RENDER_TARGET_COUNT);
+		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkFramebuffer, FrameBuffer, MAX_RENDER_TARGET_COUNT);
+	public:
+		FFrameBuffer(const FSwapchain& Swapchain,uint32_t Index);
+		virtual const RHIFrameBufferInfo& GetInfo() const override { return Info; };
+	};
+	
+	class FDevice final : public RefCounter<RHIDevice>
 	{
 	private:
 		VulkanContextPtr Context;
 		static_vector<VulkanQueuePtr, MAX_VULKAN_QUEUE_COUNT> Queues;
 
 	public:
-		VulkanDevice();
-		~VulkanDevice() {}
+		FDevice();
+		~FDevice() {}
 		bool Initalize(const RHIDeviceDesc &desc);
 
 		[[nodiscard]] virtual RHICmdListRef CreateCmdList(const RHICmdListDesc & = RHICmdListDesc()) const override;
 
 		[[nodiscard]] virtual RHIShaderRef CreateShader(const RHIShaderDesc &) const override;
 
-		[[nodiscard]] virtual RHIGraphicPipelineRef CreateGraphicPipeline(const RHIGraphicPipelineDesc &, const RHIFrameBuffer &) const override;
+		[[nodiscard]] virtual RHIGraphicPipelineRef CreateGraphicPipeline(const RHIGraphicPipelineDesc &, const RHIFrameBufferRef&) const override;
 
 		[[nodiscard]] virtual RHIBindingLayoutRef CreateBindingLayout(const RHIBindingLayoutDesc &desc) const override;
 

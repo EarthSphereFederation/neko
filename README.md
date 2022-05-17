@@ -6,7 +6,7 @@
 [![example workflow][ci-img]][ci-url]
 [![GitHub Repo stars][star-img]][star-url]
 
-A light-weight rhi.
+A light-weight renderer.
 
 ## Features
 

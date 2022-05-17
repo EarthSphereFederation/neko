@@ -15,7 +15,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_subdirectory(src)
 add_subdirectory(test)
-
+ 
 set(GLFW_BUILD_DOCS False)
 set(GLFW_BUILD_EXAMPLES False)
 set(GLFW_BUILD_TESTS False)

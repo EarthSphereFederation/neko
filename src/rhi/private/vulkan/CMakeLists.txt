@@ -2,17 +2,18 @@ cmake_policy(SET CMP0076 NEW)
 
 find_package(Vulkan REQUIRED)
 
-add_library(neko_rhi_vulkan)
-target_link_libraries(neko_rhi_vulkan PRIVATE Vulkan::Vulkan)
+add_library(RHI_Vulkan)
+target_link_libraries(RHI_Vulkan PRIVATE Vulkan::Vulkan)
 target_sources(
-    neko_rhi_vulkan PRIVATE
-    backend.h
-    device.cpp
-    cmdlist.cpp
-    swapchain.cpp
-    shader.cpp
-    pipeline.cpp
-    bindinglayout.cpp
+    RHI_Vulkan PRIVATE
+    Backend.h
+    Device.cpp
+    Cmdlist.cpp
+    Swapchain.cpp
+    Shader.cpp
+    Pipeline.cpp
+    Bindinglayout.cpp
+    Framebuffer.cpp
 ) 
 
 

@@ -3,9 +3,9 @@
 #include <vector>
 #include <map>
 #pragma warning(disable : 26812)
-namespace neko::rhi
+namespace Neko::RHI
 {
-    namespace vk
+    namespace Vulkan
     {
         VulkanContext::~VulkanContext()
         {
@@ -21,10 +21,10 @@ namespace neko::rhi
             }
         }
 
-        VulkanDevice::VulkanDevice() : Context(new VulkanContext())
+        FDevice::FDevice() : Context(new VulkanContext())
         {
         }
-        bool VulkanDevice::Initalize(const RHIDeviceDesc &desc)
+        bool FDevice::Initalize(const RHIDeviceDesc &desc)
         {
             VkApplicationInfo ApplicationInfo = {};
             ApplicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -70,10 +70,10 @@ namespace neko::rhi
             struct QueueData
             {
                 int32_t FamilyIndex;
-                RHICmdQueueType Type;
+                ECmdQueueType Type;
                 VkQueueFamilyProperties2 Properties;
 
-                QueueData(int32_t familyIndex, RHICmdQueueType type, VkQueueFamilyProperties2 properties) : FamilyIndex(familyIndex), Type(type), Properties(properties) {}
+                QueueData(int32_t familyIndex, ECmdQueueType type, VkQueueFamilyProperties2 properties) : FamilyIndex(familyIndex), Type(type), Properties(properties) {}
             };
             uint32_t UsedQueueFamliyMask = 0;
             std::vector<QueueData> QueueData;
@@ -83,7 +83,7 @@ namespace neko::rhi
                 auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
                 if (queueFlags & (VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
                 {
-                    QueueData.emplace_back(q, RHICmdQueueType::Graphic, queueFamilyProperties[q]);
+                    QueueData.emplace_back(q, ECmdQueueType::Graphic, queueFamilyProperties[q]);
                     UsedQueueFamliyMask |= (1 << q);
                 }
             }
@@ -93,7 +93,7 @@ namespace neko::rhi
                 auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
                 if (queueFlags & (VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT) && ((UsedQueueFamliyMask & (1 << q)) == 0))
                 {
-                    QueueData.emplace_back(q, RHICmdQueueType::Compute, queueFamilyProperties[q]);
+                    QueueData.emplace_back(q, ECmdQueueType::Compute, queueFamilyProperties[q]);
                     UsedQueueFamliyMask |= (1 << q);
                 }
             }
@@ -103,7 +103,7 @@ namespace neko::rhi
                 auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
                 if (queueFlags & (VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT) && ((UsedQueueFamliyMask & (1 << q)) == 0))
                 {
-                    QueueData.emplace_back(q, RHICmdQueueType::Transfer, queueFamilyProperties[q]);
+                    QueueData.emplace_back(q, ECmdQueueType::Transfer, queueFamilyProperties[q]);
                     UsedQueueFamliyMask |= (1 << q);
                 }
             }
@@ -147,13 +147,13 @@ namespace neko::rhi
 
             for (auto &q : QueueData)
             {
-                Queues.push_back(new VulkanQueue(Context, q.FamilyIndex, q.Type, q.Properties));
+                Queues.push_back(new FQueue(Context, q.FamilyIndex, q.Type, q.Properties));
             }
 
             return true;
         }
 
-        NativeObject VulkanDevice::GetVkInstance() const
+        NativeObject FDevice::GetVkInstance() const
         {
             return Context->Instance;
         }
@@ -161,7 +161,7 @@ namespace neko::rhi
 
     RHIDeviceRef CreateDevice(const RHIDeviceDesc &desc)
     {
-        auto DeviceRef = RefCountPtr<vk::VulkanDevice>(new vk::VulkanDevice());
+        auto DeviceRef = RefCountPtr<Vulkan::FDevice>(new Vulkan::FDevice());
         if (!DeviceRef->Initalize(desc))
         {
             DeviceRef = nullptr;

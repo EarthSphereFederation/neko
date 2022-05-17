@@ -3,12 +3,12 @@
 #include <vector>
 #include <map>
 #pragma warning(disable : 26812)
-namespace neko::rhi::vk
+namespace Neko::RHI::Vulkan
 {
-    VulkanSwapchain::VulkanSwapchain(const VulkanContextPtr &ctx) : Context(ctx)
+    FSwapchain::FSwapchain(const VulkanContextPtr &ctx) : Context(ctx)
     {
     }
-    VulkanSwapchain::~VulkanSwapchain()
+    FSwapchain::~FSwapchain()
     {
         if (Swapchain)
         {
@@ -24,7 +24,7 @@ namespace neko::rhi::vk
             Swapchain = nullptr;
         }
     }
-    bool VulkanSwapchain::Initalize(const RHISwapChainDesc &Desc)
+    bool FSwapchain::Initalize(const RHISwapChainDesc &Desc)
     {
         if (Desc.Surface.pointer)
         {
@@ -37,7 +37,7 @@ namespace neko::rhi::vk
             extent.width = SurfaceCapabilities.currentExtent.width;
             extent.height = SurfaceCapabilities.currentExtent.height;
 
-            auto Format = ConvertToVkFormat(Desc.Format);
+            Format = ConvertToVkFormat(Desc.Format);
             auto ColorSpace = ConvertToVkColorSpaceKHR(Desc.Format);
             VkFormat FallbackFormat = VkFormat::VK_FORMAT_UNDEFINED;
             {
@@ -124,9 +124,14 @@ namespace neko::rhi::vk
         return false;
     }
 
-    RHISwapchainRef VulkanDevice::CreateSwapChain(const RHISwapChainDesc &Desc) const
+    RHIFrameBufferRef FSwapchain::GetFrameBuffer(uint32_t Index) const
     {
-        auto SwapchainRef = RefCountPtr<vk::VulkanSwapchain>(new vk::VulkanSwapchain(Context));
+        return new FFrameBuffer(*this, Index);
+    }
+
+    RHISwapchainRef FDevice::CreateSwapChain(const RHISwapChainDesc &Desc) const
+    {
+        auto SwapchainRef = RefCountPtr<FSwapchain>(new FSwapchain(Context));
         if (!SwapchainRef->Initalize(Desc))
         {
             SwapchainRef = nullptr;

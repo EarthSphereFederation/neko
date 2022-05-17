@@ -1,12 +1,12 @@
 #include "backend.h"
 #pragma warning(disable : 26812)
-namespace neko::rhi::vk
+namespace Neko::RHI::Vulkan
 {
-    VulkanShader::VulkanShader(const VulkanContextPtr &ctx) : Context(ctx)
+    FShader::FShader(const VulkanContextPtr &ctx) : Context(ctx)
     {
     }
 
-    VulkanShader::~VulkanShader()
+    FShader::~FShader()
     {
         if (ShaderModule)
         {
@@ -15,8 +15,10 @@ namespace neko::rhi::vk
         }
     }
 
-    bool VulkanShader::Initalize(const RHIShaderDesc &Desc)
+    bool FShader::Initalize(const RHIShaderDesc &InDesc)
     {
+        Desc = InDesc;
+
         VkShaderModuleCreateInfo ShaderInfo = {};
         ShaderInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         ShaderInfo.flags = 0;
@@ -27,9 +29,9 @@ namespace neko::rhi::vk
         return true;
     }
 
-    RHIShaderRef VulkanDevice::CreateShader(const RHIShaderDesc &Desc) const
+    RHIShaderRef FDevice::CreateShader(const RHIShaderDesc &Desc) const
     {
-        auto Shader = RefCountPtr<vk::VulkanShader>(new VulkanShader(Context));
+        auto Shader = RefCountPtr<FShader>(new FShader(Context));
         if (!Shader->Initalize(Desc))
         {
             Shader = nullptr;

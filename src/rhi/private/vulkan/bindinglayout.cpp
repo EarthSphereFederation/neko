@@ -1,12 +1,12 @@
 #include "backend.h"
 #pragma warning(disable : 26812)
-namespace neko::rhi::vk
+namespace Neko::RHI::Vulkan
 {
-    VulkanBindingLayout::VulkanBindingLayout(const VulkanContextPtr &ctx) : Context(ctx)
+    FBindingLayout::FBindingLayout(const VulkanContextPtr &ctx) : Context(ctx)
     {
     }
 
-    VulkanBindingLayout::~VulkanBindingLayout()
+    FBindingLayout::~FBindingLayout()
     {
         if (DescriptorSetLayout)
         {
@@ -15,7 +15,7 @@ namespace neko::rhi::vk
         }
     }
 
-    bool VulkanBindingLayout::Initalize(const RHIBindingLayoutDesc &desc)
+    bool FBindingLayout::Initalize(const RHIBindingLayoutDesc &desc)
     {
         std::vector<VkDescriptorSetLayoutBinding> LayoutBindings;
         LayoutBindings.reserve(desc.BindingArray.size());
@@ -40,9 +40,9 @@ namespace neko::rhi::vk
         return true;
     }
 
-    RHIBindingLayoutRef VulkanDevice::CreateBindingLayout(const RHIBindingLayoutDesc &Desc) const
+    RHIBindingLayoutRef FDevice::CreateBindingLayout(const RHIBindingLayoutDesc &Desc) const
     {
-        auto BindingLayout = RefCountPtr<vk::VulkanBindingLayout>(new VulkanBindingLayout(Context));
+        auto BindingLayout = RefCountPtr<FBindingLayout>(new FBindingLayout(Context));
         if (!BindingLayout->Initalize(Desc))
         {
             BindingLayout = nullptr;

@@ -1,10 +1,10 @@
 #rhi module
-add_library(neko_rhi INTERFACE)
+add_library(RHI INTERFACE)
 
 if(BACKEND_VK)
-    target_link_libraries(neko_rhi INTERFACE neko_rhi_vulkan) 
+    target_link_libraries(RHI INTERFACE RHI_Vulkan) 
 endif(BACKEND_VK)
 
-include_directories(public)
-add_subdirectory(private)
+include_directories(Public)
+add_subdirectory(Private)
 

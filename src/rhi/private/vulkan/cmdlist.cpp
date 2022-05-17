@@ -3,9 +3,9 @@
 #include <vector>
 #include <map>
 #pragma warning(disable : 26812)
-namespace neko::rhi::vk
+namespace Neko::RHI::Vulkan
 {
-    VulkanCmdBuffer::~VulkanCmdBuffer()
+    FCmdBuffer::~FCmdBuffer()
     {
         if (CmdPool)
         {
@@ -14,18 +14,18 @@ namespace neko::rhi::vk
         }
     }
 
-    VulkanQueue::VulkanQueue(const VulkanContextPtr &ctx, uint32_t queueFamliyIndex, RHICmdQueueType cmdType, VkQueueFamilyProperties2 properties) : context(ctx),
+    FQueue::FQueue(const VulkanContextPtr &ctx, uint32_t queueFamliyIndex, ECmdQueueType cmdType, VkQueueFamilyProperties2 properties) : context(ctx),
                                                                                                                                                      FamilyIndex(queueFamliyIndex), Type(cmdType), properties(properties)
     {
     }
 
-    VulkanQueue::~VulkanQueue()
+    FQueue::~FQueue()
     {
     }
 
-    VulkanCmdBufferPtr VulkanQueue::CreateCmdBuffer()
+    VulkanCmdBufferPtr FQueue::CreateCmdBuffer()
     {
-        VulkanCmdBufferPtr CmdBuf = std::make_shared<VulkanCmdBuffer>(context);
+        VulkanCmdBufferPtr CmdBuf = std::make_shared<FCmdBuffer>(context);
         VkCommandPoolCreateInfo commandPoolInfo = {};
         commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         commandPoolInfo.queueFamilyIndex = FamilyIndex;
@@ -44,7 +44,7 @@ namespace neko::rhi::vk
         return CmdBuf;
     }
 
-    VulkanCmdBufferPtr VulkanQueue::GetOrCreateCmdBuffer()
+    VulkanCmdBufferPtr FQueue::GetOrCreateCmdBuffer()
     {
         if (CmdBufferPool.size() > 0)
         {
@@ -55,17 +55,17 @@ namespace neko::rhi::vk
         return CreateCmdBuffer();
     }
 
-    VulkanCmdList::VulkanCmdList(const VulkanContextPtr &ctx, const VulkanCmdBufferPtr &buf) : Context(ctx), CmdBuf(buf)
+    FCmdList::FCmdList(const VulkanContextPtr &ctx, const VulkanCmdBufferPtr &buf) : Context(ctx), CmdBuf(buf)
     {
     }
 
-    RHICmdListRef VulkanDevice::CreateCmdList(const RHICmdListDesc &desc) const
+    RHICmdListRef FDevice::CreateCmdList(const RHICmdListDesc &desc) const
     {
         for (auto &queue : Queues)
         {
             if (queue->GetCmdQueueType() == desc.type)
             {
-                VulkanCmdList *cmdlist = new VulkanCmdList(Context, queue->GetOrCreateCmdBuffer());
+                FCmdList *cmdlist = new FCmdList(Context, queue->GetOrCreateCmdBuffer());
                 return cmdlist;
             }
         }

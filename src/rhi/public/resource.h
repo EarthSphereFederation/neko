@@ -1,5 +1,5 @@
 #pragma once
-namespace neko::rhi
+namespace Neko::RHI
 {
     template <typename T>
     class RefCountPtr

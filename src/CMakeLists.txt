@@ -1,2 +1,2 @@
 #modules
-add_subdirectory(rhi)
+add_subdirectory(RHI)
