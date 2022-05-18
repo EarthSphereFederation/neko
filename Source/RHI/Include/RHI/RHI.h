@@ -4,9 +4,9 @@
 #include <memory>
 #include <list>
 #include <assert.h>
+#include "MiniCore/MiniCore.h"
 #include "Resource.h"
-#include "Container.h"
-namespace Neko::RHI
+namespace Neko
 { 
 #define CHECK(result) assert(result);
 #define CHECK_F(result, fmt, ...) \

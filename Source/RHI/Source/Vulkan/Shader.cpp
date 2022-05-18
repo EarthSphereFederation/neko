@@ -1,6 +1,5 @@
 #include "backend.h"
-#pragma warning(disable : 26812)
-namespace Neko::RHI::Vulkan
+namespace Neko::Vulkan
 { 
     FShader::FShader(const VulkanContextPtr &ctx) : Context(ctx)
     {

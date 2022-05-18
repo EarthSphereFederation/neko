@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 #include <assert.h>
-namespace Neko::RHI
+namespace Neko
 { 
     // from nvrhi
     // a static vector is a vector with a capacity defined at compile-time

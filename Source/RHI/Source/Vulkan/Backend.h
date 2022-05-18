@@ -5,7 +5,7 @@
 #include <stdexcept>
 #include <iostream>
 #pragma warning(disable : 26812)
-namespace Neko::RHI::Vulkan
+namespace Neko::Vulkan
 { 
 #define VK_CHECK_F(result, fmt, ...) \
 	if (result)                      \

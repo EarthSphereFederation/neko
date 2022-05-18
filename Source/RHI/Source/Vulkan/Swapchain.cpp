@@ -2,8 +2,7 @@
 #include <assert.h>
 #include <vector>
 #include <map>
-#pragma warning(disable : 26812)
-namespace Neko::RHI::Vulkan
+namespace Neko::Vulkan
 { 
     FSwapchain::FSwapchain(const VulkanContextPtr &ctx) : Context(ctx)
     {

@@ -1,7 +1,6 @@
 #include "backend.h"
 
-#pragma warning(disable : 26812)
-namespace Neko::RHI::Vulkan
+namespace Neko::Vulkan
 { 
 	FGraphicPipeline::FGraphicPipeline(const VulkanContextPtr &ctx, const RHIGraphicPipelineDesc &Desc) : Context(ctx), Desc(Desc)
 	{
