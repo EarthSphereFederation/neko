@@ -1,6 +1,6 @@
 add_executable(NekoDrawTriangle main.cpp)
-target_link_libraries(NekoDrawTriangle PRIVATE Vulkan::Vulkan NEKO glfw)
-NEKO_CONFIG_CXX_LANG(NekoDrawTriangle)
+target_link_libraries(NekoDrawTriangle PRIVATE Vulkan::Vulkan Neko glfw)
+neko_config_cxx_lang(NekoDrawTriangle)
 
 file(GLOB VERTEX_SHADERS Shaders/*.vert)
 file(GLOB FRAGMENT_SHADERS Shaders/*.frag)

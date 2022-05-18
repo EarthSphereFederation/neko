@@ -1,9 +1,7 @@
 #pragma once
 #include <atomic>
-#include <vector>
 #include <memory>
-#include <list>
-#include <assert.h>
+#include <cassert>
 #include "MiniCore/MiniCore.h"
 #include "Resource.h"
 namespace Neko
