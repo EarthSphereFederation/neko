@@ -1,0 +1,3 @@
+[submodule "ext/HLSLCompiler"]
+	path = ext/HLSLCompiler
+	url = git@github.com:EarthSphereFederation/HLSLCompiler.git
