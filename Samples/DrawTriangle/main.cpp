@@ -1,10 +1,10 @@
-#include <iostream>
-#include "RHI//RHI.h"
+#include "RHI/RHI.h"
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include <fstream>
-using namespace Neko::RHI;
+#include <vector>
 
+using namespace Neko;
 
 std::vector<char> ReadBinaryFile(const std::string& path)
 {

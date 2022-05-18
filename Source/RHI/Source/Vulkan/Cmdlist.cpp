@@ -1,9 +1,8 @@
-#include "backend.h"
-#include <assert.h>
-#include <vector>
+#include "Backend.h"
+#include <cassert>
 #include <map>
-#pragma warning(disable : 26812)
-namespace Neko::RHI::Vulkan
+#include <vector>
+namespace Neko::Vulkan
 { 
     FCmdBuffer::~FCmdBuffer()
     {

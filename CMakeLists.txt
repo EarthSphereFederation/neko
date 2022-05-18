@@ -1,20 +1,20 @@
-﻿CMAKE_MINIMUM_REQUIRED(VERSION 3.20)
+﻿cmake_minimum_required(VERSION 3.20)
 
-PROJECT(NEKO)
+project(NEKO)
 
 #============= options =============
 
-OPTION(NEKO_RHI_VULKAN "Enable Vulkan RHI backend" ON)
+option(NEKO_RHI_VULKAN "Enable Vulkan RHI backend" ON)
 
 #============= global =============
 
-SET_PROPERTY(GLOBAL PROPERTY USE_FOLDERS ON)
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
-SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-function(NEKO_CONFIG_CXX_LANG)
+function(neko_config_cxx_lang)
     set(TARGET_NAME ${ARGV0})
     if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
         target_compile_definitions(${TARGET_NAME} PUBLIC _CRT_SECURE_NO_WARNINGS)
@@ -26,10 +26,9 @@ function(NEKO_CONFIG_CXX_LANG)
     	set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD 20)
     endif()
     set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
-endfunction() 
+endfunction()
 
-#============= neko =============
-find_package(Vulkan REQUIRED)
+#============= external =============
 
 set(GLFW_BUILD_DOCS False)
 set(GLFW_BUILD_EXAMPLES False)
@@ -37,15 +36,13 @@ set(GLFW_BUILD_TESTS False)
 set(GLFW_VULKAN_STATIC True)
 add_subdirectory(External/glfw) 
 
-add_library(NEKO STATIC Source/Neko.cpp)
-target_link_libraries(NEKO PRIVATE Vulkan::Vulkan)
-NEKO_CONFIG_CXX_LANG(NEKO)
+if(NEKO_RHI_VULKAN)
+	find_package(Vulkan REQUIRED)
+endif()
 
-include_directories(Source/RHI/Include)
-add_subdirectory(Source/RHI)
+#============= neko =============
 
-include_directories(Source/MiniCore/Include)
-add_subdirectory(Source/MiniCore)
+add_subdirectory(Source)
 
 #============= samples =============
 

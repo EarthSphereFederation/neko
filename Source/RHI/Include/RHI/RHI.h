@@ -1,12 +1,10 @@
 #pragma once
 #include <atomic>
-#include <vector>
 #include <memory>
-#include <list>
-#include <assert.h>
+#include <cassert>
+#include "MiniCore/MiniCore.h"
 #include "Resource.h"
-#include "Container.h"
-namespace Neko::RHI
+namespace Neko
 { 
 #define CHECK(result) assert(result);
 #define CHECK_F(result, fmt, ...) \
