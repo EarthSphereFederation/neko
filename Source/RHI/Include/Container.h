@@ -2,7 +2,7 @@
 #include <array>
 #include <assert.h>
 namespace Neko::RHI
-{
+{ 
     // from nvrhi
     // a static vector is a vector with a capacity defined at compile-time
     template <typename T, uint32_t _max_elements>

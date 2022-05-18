@@ -1,6 +1,6 @@
 #pragma once
 namespace Neko::RHI
-{
+{ 
     template <typename T>
     class RefCountPtr
     {

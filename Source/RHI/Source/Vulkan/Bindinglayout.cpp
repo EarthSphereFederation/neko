@@ -1,7 +1,7 @@
 #include "backend.h"
 #pragma warning(disable : 26812)
 namespace Neko::RHI::Vulkan
-{
+{ 
     FBindingLayout::FBindingLayout(const VulkanContextPtr &ctx) : Context(ctx)
     {
     }

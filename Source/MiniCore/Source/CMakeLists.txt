@@ -1,0 +1,8 @@
+file(GLOB_RECURSE SRC
+"${CMAKE_CURRENT_SOURCE_DIR}/*.cpp"
+"${CMAKE_CURRENT_SOURCE_DIR}/*.inl"
+"${CMAKE_CURRENT_SOURCE_DIR}/*.h")
+
+target_sources(
+    NEKO PUBLIC
+)

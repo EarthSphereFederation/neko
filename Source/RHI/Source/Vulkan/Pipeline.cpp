@@ -2,7 +2,7 @@
 
 #pragma warning(disable : 26812)
 namespace Neko::RHI::Vulkan
-{
+{ 
 	FGraphicPipeline::FGraphicPipeline(const VulkanContextPtr &ctx, const RHIGraphicPipelineDesc &Desc) : Context(ctx), Desc(Desc)
 	{
 	}

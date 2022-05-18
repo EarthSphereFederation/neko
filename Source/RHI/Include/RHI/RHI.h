@@ -7,7 +7,7 @@
 #include "Resource.h"
 #include "Container.h"
 namespace Neko::RHI
-{
+{ 
 #define CHECK(result) assert(result);
 #define CHECK_F(result, fmt, ...) \
     printf(fmt, __VA_ARGS__);     \
@@ -349,7 +349,6 @@ namespace Neko::RHI
         NEKO_PARAM_WITH_DEFAULT(uint32_t, GpuIndex, 0);
         NEKO_PARAM_WITH_DEFAULT(RHIFeatures, Features, RHIFeatures());
 
-#ifdef NEKO_VULKAN
         struct RHIVulkanDesc
         {
             const char **InstanceExtensions = nullptr;
@@ -362,7 +361,6 @@ namespace Neko::RHI
             }
         };
         NEKO_PARAM_WITH_DEFAULT(RHIVulkanDesc, VulkanDesc, RHIVulkanDesc());
-#endif
     };
 
     class RHIDevice : public RHIResource
@@ -380,9 +378,9 @@ namespace Neko::RHI
         [[nodiscard]] virtual RHISwapchainRef CreateSwapChain(const RHISwapChainDesc &desc) const = 0;
 
     public:
-#ifdef NEKO_VULKAN
+
         [[nodiscard]] virtual NativeObject GetVkInstance() const = 0;
-#endif
+
     };
 
     typedef RefCountPtr<RHIDevice> RHIDeviceRef;

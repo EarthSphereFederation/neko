@@ -1,9 +1,6 @@
-cmake_policy(SET CMP0076 NEW)
-
-find_package(Vulkan REQUIRED)
-
 add_executable(NekoDrawTriangle main.cpp)
-target_link_libraries(NekoDrawTriangle PRIVATE Vulkan::Vulkan RHI glfw) 
+target_link_libraries(NekoDrawTriangle PRIVATE Vulkan::Vulkan NEKO glfw)
+NEKO_CONFIG_CXX_LANG(NekoDrawTriangle)
 
 file(GLOB VERTEX_SHADERS Shaders/*.vert)
 file(GLOB FRAGMENT_SHADERS Shaders/*.frag)
