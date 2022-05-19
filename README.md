@@ -15,6 +15,17 @@ A light-weight renderer.
 - Demos
   - [ ] Triangle
 
+## 3rd Party Open Source Libraries
+
+- [ ] [assimp](https://github.com/assimp/assimp)
+- [x] [dxc](https://github.com/microsoft/DirectXShaderCompiler)
+- [ ] [EASTL](https://github.com/electronicarts/EASTL)
+- [x] [glfw](https://github.com/glfw/glfw)
+- [x] [glm](https://github.com/g-truc/glm)
+- [ ] [mimalloc](https://github.com/microsoft/mimalloc)
+- [ ] [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)
+- [ ] [stb](https://github.com/nothings/stb)
+- [ ] [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
 [cmake-img]: https://img.shields.io/badge/cmake-3.19-1f9948.svg?style=flat-square&logo=cmake
 [cmake-url]: https://cmake.org/
