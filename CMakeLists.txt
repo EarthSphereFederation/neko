@@ -28,6 +28,10 @@ function(neko_config_cxx_lang)
     set_property(TARGET ${TARGET_NAME} PROPERTY CXX_STANDARD_REQUIRED ON)
 endfunction()
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-Xclang -fexceptions -Xclang -fcxx-exceptions")
+endif()
+
 #============= external =============
 
 add_subdirectory(External/mimalloc)
