@@ -30,11 +30,16 @@ endfunction()
 
 #============= external =============
 
-set(GLFW_BUILD_DOCS False)
-set(GLFW_BUILD_EXAMPLES False)
-set(GLFW_BUILD_TESTS False)
-set(GLFW_VULKAN_STATIC True)
+add_subdirectory(External/mimalloc)
+set_target_properties(mimalloc-static PROPERTIES FOLDER "External")
+
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+set(GLFW_VULKAN_STATIC ON CACHE BOOL "" FORCE)
 add_subdirectory(External/glfw) 
+set_target_properties(glfw update_mappings PROPERTIES FOLDER "External")
 
 if(NEKO_RHI_VULKAN)
 	find_package(Vulkan REQUIRED)
