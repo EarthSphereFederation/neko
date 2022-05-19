@@ -24,6 +24,7 @@ foreach(_SRC IN ITEMS ${SRC})
     get_filename_component(SRC "${_SRC}" PATH)
     string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}/MiniCore/Include/MiniCore" "MiniCore/Include" _GRP_PATH "${SRC}")
     string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}/RHI/Include/RHI" "RHI/Include" _GRP_PATH "${_GRP_PATH}")
+    string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}/OS/Include/OS" "OS/Include" _GRP_PATH "${_GRP_PATH}")
     string(REPLACE "${CMAKE_CURRENT_SOURCE_DIR}" "" _GRP_PATH "${_GRP_PATH}")
     string(REPLACE "/" "\\" _GRP_PATH "${_GRP_PATH}")
     source_group("${_GRP_PATH}" FILES "${_SRC}")
@@ -33,8 +34,13 @@ endforeach()
 
 neko_config_cxx_lang(Neko)
 
+if(NEKO_RHI_VULKAN)
+    target_compile_definitions(Neko PUBLIC NEKO_RHI_VULKAN)
+endif()
+
 # include & link
 
+target_include_directories(Neko PUBLIC OS/Include)
 target_include_directories(Neko PUBLIC RHI/Include)
 target_include_directories(Neko PUBLIC MiniCore/Include)
 target_link_libraries(Neko PRIVATE glfw)

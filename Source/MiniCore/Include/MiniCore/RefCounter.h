@@ -1,4 +1,7 @@
 #pragma once
+
+#include <type_traits>
+
 namespace Neko
 { 
     template <typename T>
@@ -40,13 +43,6 @@ namespace Neko
             ptr = tmp;
         }
 
-        void Swap(RefCountPtr &&other)
-        {
-            element_type *tmp = other.ptr;
-            other.ptr = ptr;
-            ptr = tmp;
-        }
-
     public:
         RefCountPtr() noexcept : ptr(nullptr) {}
         RefCountPtr(std::nullptr_t) noexcept : ptr(nullptr) {}
@@ -60,20 +56,20 @@ namespace Neko
         {
             InternalAddRef();
         }
-        template <class U>
-        RefCountPtr(const RefCountPtr<U> &other, typename std::enable_if<std::is_convertible<U *, T *>::value, void *>::type * = nullptr) noexcept : ptr(other.ptr)
+        template <class U> requires std::is_convertible_v<U *, T *>
+        RefCountPtr(const RefCountPtr<U> &other) noexcept : ptr(other.ptr)
         {
             InternalAddRef();
         }
         RefCountPtr(RefCountPtr &&other) noexcept : ptr(nullptr)
         {
-            if (this != reinterpret_cast<RefCountPtr *>(&reinterpret_cast<unsigned char &>(other)))
+            if (this != &other)
             {
                 Swap(other);
             }
         }
-        template <class U>
-        RefCountPtr(RefCountPtr<U> &&other, typename std::enable_if<std::is_convertible<U *, T *>::value, void *>::type * = nullptr) noexcept : ptr(other.ptr)
+        template <class U> requires std::is_convertible_v<U *, T *>
+        RefCountPtr(RefCountPtr<U> &&other) noexcept : ptr(other.ptr)
         {
             other.ptr = nullptr;
         }
@@ -94,7 +90,7 @@ namespace Neko
             }
             return *this;
         }
-        RefCountPtr &operator=(const RefCountPtr &&other) noexcept
+        RefCountPtr &operator=(RefCountPtr &&other) noexcept
         {
             if (other.ptr != ptr)
             {
