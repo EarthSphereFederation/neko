@@ -1,3 +1,4 @@
+#include "OS/Window.h"
 #include "RHI/RHI.h"
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
@@ -22,19 +23,10 @@ std::vector<char> ReadBinaryFile(const std::string& path)
     return buffer;
 }
 
-int main(int, char**) {
-    if (!glfwInit())
-    {
-        printf("GLFW initialization failed.\n");
-        return 0;
-    }
-    else
-    {
-        printf("GLFW initialization successfully!\n");
-    }
-    
+int main(int, char**)
+{
     uint32_t SurfaceExtensionCount;
-    const char** SurfaceExtensionNames = glfwGetRequiredInstanceExtensions(&SurfaceExtensionCount);
+    const char** SurfaceExtensionNames = OS::FWindow::GetRequiredVulkanInstanceExtensions(&SurfaceExtensionCount);
 
     auto VkDesc = RHIDeviceDesc::RHIVulkanDesc()
         .SetInstanceExtensions(SurfaceExtensionNames, SurfaceExtensionCount);
@@ -48,17 +40,18 @@ int main(int, char**) {
 
     auto Device = CreateDevice(DevDesc);
     auto Instance = Device->GetVkInstance();
-    GLFWwindow* window;
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    window = glfwCreateWindow(512, 512, "neko_drawtriangle", nullptr, nullptr);
-    VkSurfaceKHR GLFWSurface;
-    glfwCreateWindowSurface(Instance, window, nullptr, &GLFWSurface);
+
+    auto Window = OS::FWindowBuilder()
+        .SetSize(512, 512)
+        .SetTitle("neko_drawtriangle")
+        .CreateWindow();
+    auto WindowSurface = Window.CreateVulkanSurface(Instance);
 
     if (Device)
     {
         auto SwapchainDesc = RHISwapChainDesc().SetFormat(EFormat::B8G8R8A8_SNORM)
             .SetVSync(true)
-            .SetSurface(GLFWSurface);
+            .SetSurface(WindowSurface);
 
         auto Swapchain = Device->CreateSwapChain(SwapchainDesc);
         auto FrameBuffer = Swapchain->GetFrameBuffer(0);
@@ -88,8 +81,18 @@ int main(int, char**) {
         auto BindingLayout = Device->CreateBindingLayout(BindingLayoutDesc);
     }
 
-    vkDestroySurfaceKHR(Instance, GLFWSurface, nullptr);
-       
+    // mainloop
+
+    while(!Window.ShouldClose())
+    {
+        OS::FWindow::DoEvents();
+        if(Window.GetInput().IsKeyDown(OS::EKeyCode::Escape))
+        {
+            Window.SetCloseFlag(true);
+        }
+    }
+
+    vkDestroySurfaceKHR(Instance, WindowSurface, nullptr);
+
     return 0;
 }
- 
