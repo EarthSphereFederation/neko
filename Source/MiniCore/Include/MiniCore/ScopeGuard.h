@@ -9,65 +9,64 @@
 namespace Neko
 {
 
-template<typename T, typename = std::enable_if_t<std::is_invocable_v<T>>>
+template<typename T> requires std::is_invocable_v<T>
 class TScopeGuard : public FUncopyable
 {
-    bool call_ = true;
+    bool bShouldCall = true;
 
-    T func_;
+    T Function;
 
 public:
 
-    explicit TScopeGuard(const T &func)
-        : func_(func)
+    explicit TScopeGuard(const T &Callable)
+        : Function(Callable)
     {
 
     }
 
-    explicit TScopeGuard(T &&func)
-        : func_(std::move(func))
+    explicit TScopeGuard(T &&Callable)
+        : Function(std::move(Callable))
     {
 
     }
 
     ~TScopeGuard()
     {
-        if(call_)
-            func_();
+        if(bShouldCall)
+            Function();
     }
 
     void Dismiss()
     {
-        call_ = false;
+        bShouldCall = false;
     }
 };
 
-template<typename F, bool ExecuteOnException>
+template<typename F, bool ExecuteOnException> requires std::is_invocable_v<F>
 class TExceptionScopeGuard : public FUncopyable
 {
-    F func_;
-
-    int exceptions_;
+    F Function;
+    int ExceptionCounter;
 
 public:
 
-    explicit TExceptionScopeGuard(const F &func)
-        : func_(func), exceptions_(std::uncaught_exceptions())
+    explicit TExceptionScopeGuard(const F &Callable)
+        : Function(Callable), ExceptionCounter(std::uncaught_exceptions())
     {
 
     }
 
-    explicit TExceptionScopeGuard(F &&func)
-        : func_(std::move(func)), exceptions_(std::uncaught_exceptions())
+    explicit TExceptionScopeGuard(F &&Callable)
+        : Function(std::move(Callable)), ExceptionCounter(std::uncaught_exceptions())
     {
 
     }
 
     ~TExceptionScopeGuard()
     {
-        const int now_exceptions = std::uncaught_exceptions();
-        if((now_exceptions > exceptions_) == ExecuteOnException)
-            func_();
+        const int NowExceptions = std::uncaught_exceptions();
+        if((NowExceptions > ExceptionCounter) == ExecuteOnException)
+            Function();
     }
 };
 

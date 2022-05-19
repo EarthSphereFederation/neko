@@ -57,14 +57,14 @@ namespace Neko::OS
         return RelativeY;
     }
 
-    void FInput::LockCursor(bool bLocked)
+    void FInput::LockCursor(bool ShouldLock)
     {
-        if(bLocked != bLocked)
+        if(ShouldLock != bLocked)
         {
-            auto window = static_cast<GLFWwindow *>(GLFWWindow);
-            const int mode = bLocked ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
-            glfwSetInputMode(window, GLFW_CURSOR, mode);
-            bLocked = bLocked;
+            auto Window = static_cast<GLFWwindow *>(GLFWWindow);
+            const int Mode = ShouldLock ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL;
+            glfwSetInputMode(Window, GLFW_CURSOR, Mode);
+            bLocked = ShouldLock;
             std::tie(AbsoluteX, AbsoluteY) = QueryCursorPosition();
         }
     }
@@ -82,11 +82,11 @@ namespace Neko::OS
 
     void FInput::PreUpdate()
     {
-        auto [newX, newY] = QueryCursorPosition();
-        RelativeX = newX - AbsoluteX;
-        RelativeY = newY - AbsoluteY;
-        AbsoluteX = newX;
-        AbsoluteY = newY;
+        auto [NewX, NewY] = QueryCursorPosition();
+        RelativeX = NewX - AbsoluteX;
+        RelativeY = NewY - AbsoluteY;
+        AbsoluteX = NewX;
+        AbsoluteY = NewY;
 
         if(RelativeX != 0 || RelativeY != 0)
         {
@@ -141,12 +141,12 @@ namespace Neko::OS
 
     std::pair<float, float> FInput::QueryCursorPosition() const
     {
-        auto window = static_cast<GLFWwindow *>(GLFWWindow);
-        double newXD, newYD;
-        glfwGetCursorPos(window, &newXD, &newYD);
-        const float newX = static_cast<float>(newXD);
-        const float newY = static_cast<float>(newYD);
-        return { newX, newY };
+        auto Window = static_cast<GLFWwindow *>(GLFWWindow);
+        double NewXD, NewYD;
+        glfwGetCursorPos(Window, &NewXD, &NewYD);
+        const float NewX = static_cast<float>(NewXD);
+        const float NewY = static_cast<float>(NewYD);
+        return { NewX, NewY };
     }
 
 } // namespace NekoOS

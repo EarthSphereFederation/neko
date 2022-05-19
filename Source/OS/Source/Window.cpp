@@ -31,10 +31,7 @@ namespace Neko::OS
             GLFWKeyCodeTable()
                 : Keys{}
             {
-                for(auto &k : Keys)
-                {
-                    k = EKeyCode::Unknown;
-                }
+                std::fill(Keys.begin(), Keys.end(), EKeyCode::Unknown);
 
                 Keys[GLFW_KEY_SPACE]      = EKeyCode::Space;
                 Keys[GLFW_KEY_APOSTROPHE] = EKeyCode::Apostrophe;
@@ -299,17 +296,17 @@ namespace Neko::OS
         {
             if(auto Impl = static_cast<FWindow::FImpl *>(glfwGetWindowUserPointer(Window)))
             {
-                const bool hasFocus = Focused != 0;
-                if(hasFocus != Impl->bHasFocus)
+                const bool HasFocus = Focused != 0;
+                if(HasFocus != Impl->bHasFocus)
                 {
-                    Impl->bHasFocus = hasFocus;
-                    Impl->Sender.Send(FWindowFocusEvent{ hasFocus });
+                    Impl->bHasFocus = HasFocus;
+                    Impl->Sender.Send(FWindowFocusEvent{ HasFocus });
                 }
             }
         };
         glfwSetWindowFocusCallback(GLFWWindow, FocusCallback);
 
-        auto ScrollBack = +[](GLFWwindow *Window, double XOffset, double YOffset)
+        auto ScrollBack = +[](GLFWwindow *Window, double, double YOffset)
         {
             if(auto Impl = static_cast<FWindow::FImpl *>(glfwGetWindowUserPointer(Window)))
             {
@@ -318,7 +315,7 @@ namespace Neko::OS
         };
         glfwSetScrollCallback(GLFWWindow, ScrollBack);
 
-        auto MouseButtonCallback = +[](GLFWwindow *Window, int button, int action, int mods)
+        auto MouseButtonCallback = +[](GLFWwindow *Window, int Button, int Action, int)
         {
             auto Impl = static_cast<FWindow::FImpl *>(glfwGetWindowUserPointer(Window));
             if(!Impl)
@@ -326,36 +323,36 @@ namespace Neko::OS
                 return;
             }
 
-            EKeyCode keycode;
-            if(button == GLFW_MOUSE_BUTTON_LEFT)
+            EKeyCode KeyCode;
+            if(Button == GLFW_MOUSE_BUTTON_LEFT)
             {
-                keycode = EKeyCode::MouseLeft;
+                KeyCode = EKeyCode::MouseLeft;
             }
-            else if(button == GLFW_MOUSE_BUTTON_MIDDLE)
+            else if(Button == GLFW_MOUSE_BUTTON_MIDDLE)
             {
-                keycode = EKeyCode::MouseMiddle;
+                KeyCode = EKeyCode::MouseMiddle;
             }
-            else if(button == GLFW_MOUSE_BUTTON_RIGHT)
+            else if(Button == GLFW_MOUSE_BUTTON_RIGHT)
             {
-                keycode = EKeyCode::MouseRight;
+                KeyCode = EKeyCode::MouseRight;
             }
             else
             {
                 return;
             }
 
-            if(action == GLFW_PRESS)
+            if(Action == GLFW_PRESS)
             {
-                Impl->Input->TriggerKeyDown(keycode);
+                Impl->Input->TriggerKeyDown(KeyCode);
             }
-            else if(action == GLFW_RELEASE)
+            else if(Action == GLFW_RELEASE)
             {
-                Impl->Input->TriggerKeyUp(keycode);
+                Impl->Input->TriggerKeyUp(KeyCode);
             }
         };
         glfwSetMouseButtonCallback(GLFWWindow, MouseButtonCallback);
 
-        auto KeyCallback = [](GLFWwindow *Window, int key, int scancode, int action, int mods)
+        auto KeyCallback = [](GLFWwindow *Window, int Key, int, int Action, int)
         {
             auto Impl = static_cast<FWindow::FImpl *>(glfwGetWindowUserPointer(Window));
             if(!Impl)
@@ -364,33 +361,33 @@ namespace Neko::OS
             }
 
             static const GLFWKeyCodeTable keyCodeTable;
-            if(key < 0 || key >= static_cast<int>(keyCodeTable.Keys.size()))
+            if(Key < 0 || Key >= static_cast<int>(keyCodeTable.Keys.size()))
             {
                 return;
             }
 
-            const EKeyCode keycode = keyCodeTable.Keys[key];
+            const EKeyCode keycode = keyCodeTable.Keys[Key];
             if(keycode == EKeyCode::Unknown)
             {
                 return;
             }
 
-            if(action == GLFW_PRESS)
+            if(Action == GLFW_PRESS)
             {
                 Impl->Input->TriggerKeyDown(keycode);
             }
-            else if(action == GLFW_RELEASE)
+            else if(Action == GLFW_RELEASE)
             {
                 Impl->Input->TriggerKeyUp(keycode);
             }
         };
         glfwSetKeyCallback(GLFWWindow, KeyCallback);
 
-        auto CharInputCallback = [](GLFWwindow *Window, unsigned int ch)
+        auto CharInputCallback = [](GLFWwindow *Window, unsigned int Char)
         {
             if(auto Impl = static_cast<FWindow::FImpl *>(glfwGetWindowUserPointer(Window)))
             {
-                Impl->Input->TriggerCharInput(ch);
+                Impl->Input->TriggerCharInput(Char);
             }
         };
         glfwSetCharCallback(GLFWWindow, CharInputCallback);

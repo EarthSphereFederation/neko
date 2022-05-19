@@ -12,7 +12,7 @@ namespace Neko::OS
     struct FWheelScrollEvent { int RelativeOffset; };
     struct FKeyDownEvent     { EKeyCode Key; };
     struct FKeyUpEvent       { EKeyCode Key; };
-    struct FCharInputEvent   { uint32_t CharCode; };
+    struct FCharInputEvent   { uint32_t Char; };
 
     class FInput : public FUncopyable
     {
@@ -32,7 +32,7 @@ namespace Neko::OS
         float GetCursorRelativePositionX() const;
         float GetCursorRelativePositionY() const;
 
-        void LockCursor(bool bLocked);
+        void LockCursor(bool ShouldLock);
         bool IsCursorLocked() const;
 
         NEKO_DECLARE_EVENT_SENDER(FCursorMoveEvent)

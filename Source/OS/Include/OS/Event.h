@@ -21,14 +21,14 @@ namespace Neko::OS
 
         virtual ~TReceiver() = default;
 
-        virtual void Handle(const Event &e) = 0;
+        virtual void Handle(const Event &EventObject) = 0;
 
     private:
 
         friend class TReceiverSet<Event>;
 
-        mutable std::set<TReceiverSet<Event> *> containedSets_;
-        mutable std::set<TReceiverSet<Event> *> containedSetsWithOwnership_;
+        mutable std::set<TReceiverSet<Event> *> ContainedSets;
+        mutable std::set<TReceiverSet<Event> *> ContainedSetsWithOwnership;
     };
 
     template<typename Event>
@@ -38,24 +38,24 @@ namespace Neko::OS
 
         ~TReceiverSet();
 
-        void Send(const Event &e) const;
+        void Send(const Event &EventObject) const;
 
-        void Attach(TReceiver<Event> *handler);
+        void Attach(TReceiver<Event> *Handler);
 
-        void Attach(std::shared_ptr<TReceiver<Event>> handlerWithOwnership);
+        void Attach(std::shared_ptr<TReceiver<Event>> HandlerWithOwnership);
 
-        void Detach(const TReceiver<Event> *handler);
+        void Detach(const TReceiver<Event> *Handler);
 
-        void Detach(const std::shared_ptr<TReceiver<Event>> &handler);
+        void Detach(const std::shared_ptr<TReceiver<Event>> &Handler);
 
-        void Detach(const std::shared_ptr<const TReceiver<Event>> &handler);
+        void Detach(const std::shared_ptr<const TReceiver<Event>> &Handler);
 
         void DetachAll();
 
     private:
 
-        std::set<TReceiver<Event> *, std::less<>> handlers_;
-        std::set<std::shared_ptr<TReceiver<Event>>, std::less<>> handlersWithOwnership_;
+        std::set<TReceiver<Event> *, std::less<>> Handlers;
+        std::set<std::shared_ptr<TReceiver<Event>>, std::less<>> HandlersWithOwnership;
     };
 
     template<typename...Events>
@@ -64,22 +64,22 @@ namespace Neko::OS
     public:
 
         template<typename Event>
-        void Send(const Event &e) const;
+        void Send(const Event &EventObject) const;
 
         template<typename Event>
-        void Attach(TReceiver<Event> *handler);
+        void Attach(TReceiver<Event> *Handler);
 
         template<typename Event>
-        void Attach(std::shared_ptr<TReceiver<Event>> handlerWithOwnership);
+        void Attach(std::shared_ptr<TReceiver<Event>> HandlerWithOwnership);
 
         template<typename Event>
-        void Detach(const TReceiver<Event> *handler);
+        void Detach(const TReceiver<Event> *Handler);
 
         template<typename Event>
-        void Detach(const std::shared_ptr<TReceiver<Event>> &handler);
+        void Detach(const std::shared_ptr<TReceiver<Event>> &Handler);
 
         template<typename Event>
-        void Detach(const std::shared_ptr<const TReceiver<Event>> &handler);
+        void Detach(const std::shared_ptr<const TReceiver<Event>> &Handler);
 
         template<typename Event>
         void DetachAll();
@@ -88,7 +88,7 @@ namespace Neko::OS
 
     private:
 
-        std::tuple<TReceiverSet<Events>...> receiverSets_;
+        std::tuple<TReceiverSet<Events>...> ReceiverSets;
     };
 
     template<typename Event>
@@ -96,21 +96,21 @@ namespace Neko::OS
     {
     public:
 
-        using Function = std::function<void(const Event &)>;
+        using FFunction = std::function<void(const Event &)>;
 
-        explicit TFunctionalReceiver(std::function<void()> f);
+        explicit TFunctionalReceiver(std::function<void()> FunctionPtr);
 
-        explicit TFunctionalReceiver(Function f = {});
+        explicit TFunctionalReceiver(FFunction FunctionPtr = {});
 
-        void SetFunction(std::function<void()> f);
+        void SetFunction(std::function<void()> FunctionPtr);
 
-        void SetFunction(Function f);
+        void SetFunction(FFunction FunctionPtr);
 
-        void Handle(const Event &e) override;
+        void Handle(const Event &EventObject) override;
 
     private:
 
-        Function f_;
+        FFunction FunctionPointer;
     };
 
     template<typename Event, typename Class>
@@ -122,41 +122,41 @@ namespace Neko::OS
 
         TClassReceiver();
 
-        TClassReceiver(Class *c, MemberFunctionPointer f);
+        TClassReceiver(Class *ClassPtr, MemberFunctionPointer FunctionPtr);
 
-        void SetClassInstance(Class *c);
+        void SetClassInstance(Class *ClassPtr);
 
-        void SetMemberFunction(MemberFunctionPointer f);
+        void SetMemberFunction(MemberFunctionPointer FunctionPtr);
 
-        void Handle(const Event &e) override;
+        void Handle(const Event &EventObject) override;
 
     private:
 
-        Class c_;
-        MemberFunctionPointer f_;
+        Class ClassPointer;
+        MemberFunctionPointer FunctionPointer;
     };
 
     #define NEKO_DECLARE_EVENT_SENDER(Event)                                     \
-        void Attach(Neko::OS::TReceiver<Event> *handler);                        \
-        void Attach(std::shared_ptr<Neko::OS::TReceiver<Event>> handler);        \
+        void Attach(Neko::OS::TReceiver<Event> *Handler);                        \
+        void Attach(std::shared_ptr<Neko::OS::TReceiver<Event>> Handler);        \
         void Attach(std::function<void(const Event &)> f);                       \
-        void Detach(Neko::OS::TReceiver<Event> *handler);                        \
-        void Detach(const std::shared_ptr<Neko::OS::TReceiver<Event>> &handler); \
-        void Detach(const std::shared_ptr<const Neko::OS::TReceiver<Event>> &handler);
+        void Detach(Neko::OS::TReceiver<Event> *Handler);                        \
+        void Detach(const std::shared_ptr<Neko::OS::TReceiver<Event>> &Handler); \
+        void Detach(const std::shared_ptr<const Neko::OS::TReceiver<Event>> &Handler);
 
     #define NEKO_DEFINE_EVENT_SENDER(Class, Sender, Event)                                                  \
-        void Class::Attach(Neko::OS::TReceiver<Event> *handler)                                             \
-            { Sender.Attach<Event>(handler); }                                                              \
-        void Class::Attach(std::shared_ptr<Neko::OS::TReceiver<Event>> handler)                             \
-            { Sender.Attach<Event>(std::move(handler)); }                                                   \
+        void Class::Attach(Neko::OS::TReceiver<Event> *Handler)                                             \
+            { Sender.Attach<Event>(Handler); }                                                              \
+        void Class::Attach(std::shared_ptr<Neko::OS::TReceiver<Event>> Handler)                             \
+            { Sender.Attach<Event>(std::move(Handler)); }                                                   \
         void Class::Attach(std::function<void(const Event &)> f)                                            \
             { Sender.Attach<Event>(std::make_shared<Neko::OS::TFunctionalReceiver<Event>>(std::move(f))); } \
-        void Class::Detach(Neko::OS::TReceiver<Event> *handler)                                             \
-            { Sender.Detach<Event>(handler); }                                                              \
-        void Class::Detach(const std::shared_ptr<Neko::OS::TReceiver<Event>> &handler)                      \
-            { Sender.Detach<Event>(handler); }                                                              \
-        void Class::Detach(const std::shared_ptr<const Neko::OS::TReceiver<Event>> &handler)                \
-            { Sender.Detach<Event>(handler); }
+        void Class::Detach(Neko::OS::TReceiver<Event> *Handler)                                             \
+            { Sender.Detach<Event>(Handler); }                                                              \
+        void Class::Detach(const std::shared_ptr<Neko::OS::TReceiver<Event>> &Handler)                      \
+            { Sender.Detach<Event>(Handler); }                                                              \
+        void Class::Detach(const std::shared_ptr<const Neko::OS::TReceiver<Event>> &Handler)                \
+            { Sender.Detach<Event>(Handler); }
 
     template<typename Event>
     TReceiverSet<Event>::~TReceiverSet()
@@ -165,157 +165,157 @@ namespace Neko::OS
     }
 
     template<typename Event>
-    void TReceiverSet<Event>::Send(const Event &e) const
+    void TReceiverSet<Event>::Send(const Event &EventObject) const
     {
-        for(auto h : handlers_)
-            h->Handle(e);
-        for(auto &h : handlersWithOwnership_)
-            h->Handle(e);
+        for(auto H : Handlers)
+            H->Handle(EventObject);
+        for(auto &H : HandlersWithOwnership)
+            H->Handle(EventObject);
     }
 
     template<typename Event>
-    void TReceiverSet<Event>::Attach(TReceiver<Event> *handler)
+    void TReceiverSet<Event>::Attach(TReceiver<Event> *Handler)
     {
-        assert(handler);
-        handler->containedSets_.insert(this);
-        handlers_.insert(handler);
+        assert(Handler);
+        Handler->ContainedSets.insert(this);
+        Handlers.insert(Handler);
     }
 
     template<typename Event>
-    void TReceiverSet<Event>::Attach(std::shared_ptr<TReceiver<Event>> handlerWithOwnership)
+    void TReceiverSet<Event>::Attach(std::shared_ptr<TReceiver<Event>> HandlerWithOwnership)
     {
-        assert(handlerWithOwnership);
-        handlerWithOwnership->containedSetsWithOwnership_.insert(this);
-        handlersWithOwnership_.insert(std::move(handlerWithOwnership));
+        assert(HandlerWithOwnership);
+        HandlerWithOwnership->ContainedSetsWithOwnership.insert(this);
+        HandlersWithOwnership.insert(std::move(HandlerWithOwnership));
     }
 
     template<typename Event>
-    void TReceiverSet<Event>::Detach(const TReceiver<Event> *handler)
+    void TReceiverSet<Event>::Detach(const TReceiver<Event> *Handler)
     {
-        assert(handler);
-        assert(handler->containedSets_.contains(this));
-        assert(handlers_.contains(handler));
-        handler->containedSets_.erase(this);
-        handlers_.erase(handler);
+        assert(Handler);
+        assert(Handler->ContainedSets.contains(this));
+        assert(Handlers.contains(Handler));
+        Handler->ContainedSets.erase(this);
+        Handlers.erase(Handler);
     }
 
     template<typename Event>
-    void TReceiverSet<Event>::Detach(const std::shared_ptr<TReceiver<Event>> &handler)
+    void TReceiverSet<Event>::Detach(const std::shared_ptr<TReceiver<Event>> &Handler)
     {
-        assert(handler);
-        assert(handler->containedSetsWithOwnership_.contains(this));
-        assert(handlersWithOwnership_.contains(handler));
-        handler->containedSetsWithOwnership_.erase(this);
-        handlersWithOwnership_.erase(handler);
+        assert(Handler);
+        assert(Handler->ContainedSetsWithOwnership.contains(this));
+        assert(HandlersWithOwnership.contains(Handler));
+        Handler->ContainedSetsWithOwnership.erase(this);
+        HandlersWithOwnership.erase(Handler);
     }
 
     template<typename Event>
-    void TReceiverSet<Event>::Detach(const std::shared_ptr<const TReceiver<Event>> &handler)
+    void TReceiverSet<Event>::Detach(const std::shared_ptr<const TReceiver<Event>> &Handler)
     {
-        assert(handler);
-        assert(handler->containedSetsWithOwnership_.contains(this));
-        assert(handlersWithOwnership_.contains(handler));
-        handler->containedSetsWithOwnership_.erase(this);
-        handlersWithOwnership_.erase(handler);
+        assert(Handler);
+        assert(Handler->ContainedSetsWithOwnership.contains(this));
+        assert(HandlersWithOwnership.contains(Handler));
+        Handler->ContainedSetsWithOwnership.erase(this);
+        HandlersWithOwnership.erase(Handler);
     }
 
     template<typename Event>
     void TReceiverSet<Event>::DetachAll()
     {
-        while(!handlers_.empty())
-            this->Detach(*handlers_.begin());
-        while(!handlersWithOwnership_.empty())
-            this->Detach(*handlersWithOwnership_.begin());
+        while(!Handlers.empty())
+            this->Detach(*Handlers.begin());
+        while(!HandlersWithOwnership.empty())
+            this->Detach(*HandlersWithOwnership.begin());
     }
 
     template<typename...Events>
     template<typename Event>
-    void TSender<Events...>::Send(const Event &e) const
+    void TSender<Events...>::Send(const Event &EventObject) const
     {
-        std::get<TReceiverSet<Event>>(receiverSets_).Send(e);
+        std::get<TReceiverSet<Event>>(ReceiverSets).Send(EventObject);
     }
 
     template<typename...Events>
     template<typename Event>
-    void TSender<Events...>::Attach(TReceiver<Event> *handler)
+    void TSender<Events...>::Attach(TReceiver<Event> *Handler)
     {
-        std::get<TReceiverSet<Event>>(receiverSets_).Attach(handler);
+        std::get<TReceiverSet<Event>>(ReceiverSets).Attach(Handler);
     }
 
     template<typename...Events>
     template<typename Event>
-    void TSender<Events...>::Attach(std::shared_ptr<TReceiver<Event>> handlerWithOwnership)
+    void TSender<Events...>::Attach(std::shared_ptr<TReceiver<Event>> HandlerWithOwnership)
     {
-        std::get<TReceiverSet<Event>>(receiverSets_).Attach(std::move(handlerWithOwnership));
+        std::get<TReceiverSet<Event>>(ReceiverSets).Attach(std::move(HandlerWithOwnership));
     }
 
     template<typename...Events>
     template<typename Event>
-    void TSender<Events...>::Detach(const TReceiver<Event> *handler)
+    void TSender<Events...>::Detach(const TReceiver<Event> *Handler)
     {
-        std::get<TReceiverSet<Event>>(receiverSets_).Detach(handler);
+        std::get<TReceiverSet<Event>>(ReceiverSets).Detach(Handler);
     }
 
     template<typename...Events>
     template<typename Event>
-    void TSender<Events...>::Detach(const std::shared_ptr<TReceiver<Event>> &handler)
+    void TSender<Events...>::Detach(const std::shared_ptr<TReceiver<Event>> &Handler)
     {
-        std::get<TReceiverSet<Event>>(receiverSets_).Detach(handler);
+        std::get<TReceiverSet<Event>>(ReceiverSets).Detach(Handler);
     }
 
     template<typename...Events>
     template<typename Event>
-    void TSender<Events...>::Detach(const std::shared_ptr<const TReceiver<Event>> &handler)
+    void TSender<Events...>::Detach(const std::shared_ptr<const TReceiver<Event>> &Handler)
     {
-        std::get<TReceiverSet<Event>>(receiverSets_).Detach(handler);
+        std::get<TReceiverSet<Event>>(ReceiverSets).Detach(Handler);
     }
 
     template<typename...Events>
     template<typename Event>
     void TSender<Events...>::DetachAll()
     {
-        std::get<TReceiverSet<Event>>(receiverSets_).DetachAll();
+        std::get<TReceiverSet<Event>>(ReceiverSets).DetachAll();
     }
 
     template<typename...Events>
     void TSender<Events...>::DetachAllTypes()
     {
-        ((std::get<TReceiverSet<Events>>(receiverSets_).DetachAll()), ...);
+        ((std::get<TReceiverSet<Events>>(ReceiverSets).DetachAll()), ...);
     }
 
     template<typename Event>
-    TFunctionalReceiver<Event>::TFunctionalReceiver(std::function<void()> f)
+    TFunctionalReceiver<Event>::TFunctionalReceiver(std::function<void()> Function)
     {
-        SetFunction(std::move(f));
+        SetFunction(std::move(Function));
     }
 
     template<typename Event>
-    TFunctionalReceiver<Event>::TFunctionalReceiver(Function f)
-        : f_(std::move(f))
+    TFunctionalReceiver<Event>::TFunctionalReceiver(FFunction Function)
+        : FunctionPointer(std::move(Function))
     {
         
     }
 
     template<typename Event>
-    void TFunctionalReceiver<Event>::SetFunction(std::function<void()> f)
+    void TFunctionalReceiver<Event>::SetFunction(std::function<void()> Function)
     {
-        if(f)
-            f_ = [nf = std::move(f)](const Event &){ nf(); };
+        if(Function)
+            FunctionPointer = [InterfaceFunction = std::move(Function)](const Event &){ InterfaceFunction(); };
         else
-            f_ = {};
+            FunctionPointer = {};
     }
 
     template<typename Event>
-    void TFunctionalReceiver<Event>::SetFunction(Function f)
+    void TFunctionalReceiver<Event>::SetFunction(FFunction f)
     {
-        f_ = std::move(f);
+        FunctionPointer = std::move(f);
     }
 
     template<typename Event>
-    void TFunctionalReceiver<Event>::Handle(const Event &e)
+    void TFunctionalReceiver<Event>::Handle(const Event &EventObject)
     {
-        if(f_)
-            f_(e);
+        if(FunctionPointer)
+            FunctionPointer(EventObject);
     }
 
     template<typename Event, typename Class>
@@ -326,29 +326,29 @@ namespace Neko::OS
     }
 
     template<typename Event, typename Class>
-    TClassReceiver<Event, Class>::TClassReceiver(Class *c, MemberFunctionPointer f)
-        : c_(c), f_(f)
+    TClassReceiver<Event, Class>::TClassReceiver(Class *ClassPtr, MemberFunctionPointer FunctionPtr)
+        : ClassPointer(ClassPtr), FunctionPointer(FunctionPtr)
     {
         
     }
 
     template<typename Event, typename Class>
-    void TClassReceiver<Event, Class>::SetClassInstance(Class *c)
+    void TClassReceiver<Event, Class>::SetClassInstance(Class *ClassPtr)
     {
-        c_ = c;
+        ClassPointer = ClassPtr;
     }
 
     template<typename Event, typename Class>
-    void TClassReceiver<Event, Class>::SetMemberFunction(MemberFunctionPointer f)
+    void TClassReceiver<Event, Class>::SetMemberFunction(MemberFunctionPointer FunctionPtr)
     {
-        f_ = f;
+        FunctionPointer = FunctionPtr;
     }
 
     template<typename Event, typename Class>
-    void TClassReceiver<Event, Class>::Handle(const Event &e)
+    void TClassReceiver<Event, Class>::Handle(const Event &EventObject)
     {
-        if(c_ && f_)
-            (c_->*f_)(e);
+        if(ClassPointer && FunctionPointer)
+            (ClassPointer->*FunctionPointer)(EventObject);
     }
 
 } // namespace Neko::OS
