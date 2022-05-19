@@ -22,7 +22,7 @@ A light-weight renderer.
 - [ ] [EASTL](https://github.com/electronicarts/EASTL)
 - [x] [glfw](https://github.com/glfw/glfw)
 - [x] [glm](https://github.com/g-truc/glm)
-- [ ] [mimalloc](https://github.com/microsoft/mimalloc)
+- [x] [mimalloc](https://github.com/microsoft/mimalloc)
 - [ ] [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)
 - [ ] [stb](https://github.com/nothings/stb)
 - [ ] [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
