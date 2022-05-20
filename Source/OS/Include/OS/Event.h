@@ -12,14 +12,31 @@ namespace Neko::OS
 {
 
     template<typename Event>
+    class TReceiver;
+
+    template<typename Event>
     class TReceiverSet;
+
+    template<typename Event>
+    struct TReceiverLess
+    {
+        using is_transparent = int;
+
+        bool operator()(const std::shared_ptr<TReceiver<Event>> &l, const std::shared_ptr<TReceiver<Event>> &r) const;
+
+        bool operator()(const std::shared_ptr<TReceiver<Event>> &l, const TReceiver<Event> *r) const;
+
+        bool operator()(const TReceiver<Event> *l, const std::shared_ptr<TReceiver<Event>> &r) const;
+
+        bool operator()(const TReceiver<Event> *l, const TReceiver<Event> *r) const;
+    };
 
     template<typename Event>
     class TReceiver : public std::enable_shared_from_this<TReceiver<Event>>, public FUncopyable
     {
     public:
 
-        virtual ~TReceiver() = default;
+        virtual ~TReceiver();
 
         virtual void Handle(const Event &EventObject) = 0;
 
@@ -54,8 +71,8 @@ namespace Neko::OS
 
     private:
 
-        std::set<TReceiver<Event> *, std::less<>> Handlers;
-        std::set<std::shared_ptr<TReceiver<Event>>, std::less<>> HandlersWithOwnership;
+        std::set<TReceiver<Event> *, TReceiverLess<Event>> Handlers;
+        std::set<std::shared_ptr<TReceiver<Event>>, TReceiverLess<Event>> HandlersWithOwnership;
     };
 
     template<typename...Events>
@@ -159,9 +176,43 @@ namespace Neko::OS
             { Sender.Detach<Event>(Handler); }
 
     template<typename Event>
+    TReceiver<Event>::~TReceiver()
+    {
+        while(!ContainedSets.empty())
+        {
+            (*ContainedSets.begin())->Detach(this);
+        }
+    }
+
+    template<typename Event>
     TReceiverSet<Event>::~TReceiverSet()
     {
         DetachAll();
+    }
+
+    template<typename Event>
+    bool TReceiverLess<Event>::operator()(
+        const std::shared_ptr<TReceiver<Event>> &l, const std::shared_ptr<TReceiver<Event>> &r) const
+    {
+        return l < r;
+    }
+
+    template<typename Event>
+    bool TReceiverLess<Event>::operator()(const std::shared_ptr<TReceiver<Event>> &l, const TReceiver<Event> *r) const
+    {
+        return l.get() < r;
+    }
+
+    template<typename Event>
+    bool TReceiverLess<Event>::operator()(const TReceiver<Event> *l, const std::shared_ptr<TReceiver<Event>> &r) const
+    {
+        return l < r.get();
+    }
+
+    template<typename Event>
+    bool TReceiverLess<Event>::operator()(const TReceiver<Event> *l, const TReceiver<Event> *r) const
+    {
+        return l < r;
     }
 
     template<typename Event>
@@ -193,30 +244,25 @@ namespace Neko::OS
     void TReceiverSet<Event>::Detach(const TReceiver<Event> *Handler)
     {
         assert(Handler);
-        assert(Handler->ContainedSets.contains(this));
-        assert(Handlers.contains(Handler));
+        assert(Handler->ContainedSets.contains(this) || Handler->ContainedSetsWithOwnership.contains(this));
+        assert(Handlers.contains(Handler) || HandlersWithOwnership.contains(Handler));
         Handler->ContainedSets.erase(this);
+        Handler->ContainedSetsWithOwnership.erase(this);
         Handlers.erase(Handler);
+        // use erase(find(key)) since transparent comparator support for std::set::erase requires c++23
+        HandlersWithOwnership.erase(HandlersWithOwnership.find(Handler));
     }
 
     template<typename Event>
     void TReceiverSet<Event>::Detach(const std::shared_ptr<TReceiver<Event>> &Handler)
     {
-        assert(Handler);
-        assert(Handler->ContainedSetsWithOwnership.contains(this));
-        assert(HandlersWithOwnership.contains(Handler));
-        Handler->ContainedSetsWithOwnership.erase(this);
-        HandlersWithOwnership.erase(Handler);
+        this->Detach(Handler.get());
     }
 
     template<typename Event>
     void TReceiverSet<Event>::Detach(const std::shared_ptr<const TReceiver<Event>> &Handler)
     {
-        assert(Handler);
-        assert(Handler->ContainedSetsWithOwnership.contains(this));
-        assert(HandlersWithOwnership.contains(Handler));
-        Handler->ContainedSetsWithOwnership.erase(this);
-        HandlersWithOwnership.erase(Handler);
+        this->Detach(Handler.get());
     }
 
     template<typename Event>
