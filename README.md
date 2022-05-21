@@ -23,7 +23,7 @@ A light-weight renderer.
 - [x] [glfw](https://github.com/glfw/glfw)
 - [x] [glm](https://github.com/g-truc/glm)
 - [x] [mimalloc](https://github.com/microsoft/mimalloc)
-- [ ] [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)
+- [x] [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)
 - [ ] [stb](https://github.com/nothings/stb)
 - [ ] [VulkanMemoryAllocator](https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator)
 
