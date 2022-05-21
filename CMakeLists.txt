@@ -15,21 +15,12 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-list(PREPEND CMAKE_MODULE_PATH "${project_root}/Cmake")
-include(CompilerSettings)
-
 #============= external =============
 
-add_subdirectory(External/mimalloc)
-set_target_properties(mimalloc-static PROPERTIES FOLDER "External")
-
-set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
-set(GLFW_VULKAN_STATIC ON CACHE BOOL "" FORCE)
-add_subdirectory(External/glfw) 
-set_target_properties(glfw update_mappings PROPERTIES FOLDER "External")
+list(PREPEND CMAKE_MODULE_PATH "${project_root}/Cmake")
+include(CompilerSettings)
+include(External/mimalloc)
+include(External/glfw)
 
 if(NEKO_RHI_VULKAN)
 	find_package(Vulkan REQUIRED)
