@@ -1,0 +1,2 @@
+add_subdirectory(External/ShaderReflection)
+set_target_properties(ShaderReflection PROPERTIES FOLDER "External/ShaderReflection")

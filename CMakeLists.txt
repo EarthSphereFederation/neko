@@ -21,11 +21,14 @@ list(PREPEND CMAKE_MODULE_PATH "${project_root}/Cmake")
 include(CompilerSettings)
 include(External/mimalloc)
 include(External/glfw)
+include(External/HLSLCompiler)
 
 if(NEKO_RHI_VULKAN)
 	find_package(Vulkan REQUIRED)
 	include(External/spirv-cross)
 endif()
+
+include(External/ShaderReflection)
 
 #============= neko =============
 

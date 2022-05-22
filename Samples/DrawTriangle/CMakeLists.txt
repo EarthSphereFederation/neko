@@ -2,9 +2,7 @@ add_executable(NekoDrawTriangle main.cpp)
 target_link_libraries(NekoDrawTriangle PRIVATE
     Vulkan::Vulkan
     Neko
-    glfw
-    spirv-cross-core
-    spirv-cross-hlsl)
+    glfw)
 NEKO_CONFIG_CXX_LANG(NekoDrawTriangle)
 
 file(GLOB VERTEX_SHADERS Shaders/*.vert)

@@ -57,6 +57,5 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-cmake-build-debug
-cmake-build-relwithdebinfo
-build
+cmake-build-*
+[bB]uild
