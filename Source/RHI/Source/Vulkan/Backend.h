@@ -582,5 +582,7 @@ namespace Neko::RHI::Vulkan
 		virtual void GC() override;
 		
 		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;
-	};
+
+        void WaitIdle();
+    };
 };

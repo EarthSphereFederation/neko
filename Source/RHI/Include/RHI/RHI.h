@@ -401,6 +401,7 @@ namespace Neko::RHI
         virtual bool IsCmdQueueValid(const ECmdQueueType&) = 0;
         virtual void GC() = 0;
 
+        virtual void WaitIdle() = 0;
     };
 
     typedef RefCountPtr<IDevice> IDeviceRef;

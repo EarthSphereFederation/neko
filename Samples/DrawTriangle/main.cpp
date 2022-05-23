@@ -113,6 +113,7 @@ int main(int, char **)
 
         Device->GC();
     }
+    Device->WaitIdle();
 
     return 0;
 }

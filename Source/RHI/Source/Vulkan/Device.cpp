@@ -250,6 +250,11 @@ namespace Neko::RHI
                 }
             }
         }
+
+        void FDevice::WaitIdle()
+        {
+            vkDeviceWaitIdle(Context.Device);
+        }
     }
     
     IDeviceRef CreateDevice(const FDeviceDesc &desc)
