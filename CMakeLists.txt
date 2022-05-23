@@ -5,6 +5,7 @@ project(NEKO)
 #============= options =============
 
 option(NEKO_RHI_VULKAN "Enable Vulkan RHI backend" ON)
+option(NEKO_SHADER_DEV "Compile Shader from source or bin dir" ON)
 
 #============= global =============
 
