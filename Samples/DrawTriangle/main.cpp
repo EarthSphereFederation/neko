@@ -57,18 +57,18 @@ int main(int, char **)
     auto FrameBufferForPipeline = Swapchain->GetFrameBuffer(0);
 
 #if NEKO_SHADER_DEV
-    std::string AssetPath = std::filesystem::exists(ASSETS_PATH) ? ASSETS_PATH : GetExecutablePath();
+    std::string AssetPath = std::filesystem::exists(ASSETS_PATH) ? ASSETS_PATH : GetExecutableDir();
 #else
-    std::string AssetPath = GetExecutablePath();
+    std::string AssetPath = GetExecutableDir();
 #endif
 
     ShaderDesc VertexShaderDesc = {
-            AssetPath + "shaders/DrawTriangle.hlsl",
+            AssetPath + "/shaders/DrawTriangle.hlsl",
             "mainVS",
             EShaderType::kVertex,
             EShaderFeatureLevel::k6_5};
     ShaderDesc PixelShaderDesc = {
-            AssetPath + "shaders/DrawTriangle.hlsl",
+            AssetPath + "/shaders/DrawTriangle.hlsl",
             "mainPS",
             EShaderType::kPixel,
             EShaderFeatureLevel::k6_5};
