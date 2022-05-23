@@ -1,27 +1,22 @@
 #pragma once
 #include "RHI/RHI.h"
+#include "OS/Window.h"
 #include <vulkan/vulkan.h>
 #include <list>
 #include <iostream>
 #include <vector>
-#pragma warning(disable : 26812)
-namespace Neko::Vulkan
+namespace Neko::RHI::Vulkan
 { 
-#define VK_CHECK_F(result, fmt, ...) \
-	if (result)                      \
-	{                                \
-		printf(fmt, __VA_ARGS__);    \
-		printf("\n");                \
-		assert(false);               \
+
+#define VK_CHECK_THROW(result, fmt, ...) \
+	if (result)                          \
+	{                                    \
+		char Buf[256];                   \
+		sprintf(Buf,fmt, __VA_ARGS__);   \
+		throw OS::FOSException(Buf);     \
 	}
 
-#define VK_CHECK_RETURN_FALSE(result, fmt, ...) \
-	if (result)                                 \
-	{                                           \
-		printf(fmt, __VA_ARGS__);               \
-		printf("\n");                           \
-		return false;                           \
-	}
+#define CAST(T,Ref) RefCountPtr<T>(reinterpret_cast<T*>(Ref.GetPtr()))
 
 	constexpr uint32_t MAX_VULKAN_QUEUE_COUNT = 3;
 
@@ -352,7 +347,7 @@ namespace Neko::Vulkan
 		}
 	}
 
-	struct VulkanContext final : public RefCounter<RHIResource>
+	struct FContext final : public RefCounter<IResource>
 	{
 		VkInstance Instance = nullptr;
 		VkPhysicalDevice PhysicalDevice = nullptr;
@@ -364,22 +359,21 @@ namespace Neko::Vulkan
 		VkPhysicalDeviceMemoryProperties2 PhyDeviceMemoryProperties = {};
 		VkDeviceCreateInfo DeviceInfo = {};
 
-		~VulkanContext();
+		~FContext();
 	};
-	typedef RefCountPtr<VulkanContext> VulkanContextPtr;
 
-	class FShader final : public RefCounter<RHIShader>
+	class FShader final : public RefCounter<IShader>
 	{
 	private:
-		const VulkanContextPtr Context;
+		const FContext& Context;
 		VkShaderModule ShaderModule = nullptr;
-		RHIShaderDesc Desc;
+		FShaderDesc Desc;
 
 	public:
-		FShader(const VulkanContextPtr &ctx);
+		FShader(const FContext&);
 		~FShader();
-		bool Initalize(const RHIShaderDesc &desc);
-		virtual const RHIShaderDesc &GetDesc() const override { return Desc; }
+		bool Initalize(const FShaderDesc &);
+		virtual const FShaderDesc &GetDesc() override { return Desc; }
 
 	public:
 		const VkShaderModule GetVkShaderModule() const { return ShaderModule; }
@@ -390,131 +384,203 @@ namespace Neko::Vulkan
 	private:
 		VkCommandPool CmdPool = nullptr;
 		VkCommandBuffer CmdBuf = nullptr;
-		const VulkanContextPtr context;
+		const FContext& Context;
+	public:
+		uint64_t RecordingID = 0;
+		uint64_t SubmitID = 0;
 
 	public:
-		FCmdBuffer(const VulkanContextPtr &ctx) : context(ctx) {}
+		FCmdBuffer(const FContext& Ctx) : Context(Ctx) {}
 		~FCmdBuffer();
+
+		VkCommandBuffer GetCommandBuffer() const { return CmdBuf; }
+
 		friend class FQueue;
 	};
-	typedef std::shared_ptr<FCmdBuffer> VulkanCmdBufferPtr;
 
-	class FQueue final : public RefCounter<RHIResource>
+	
+
+	class FQueue final : public RefCounter<IResource>
 	{
 	private:
-		const VulkanContextPtr context;
+		const FContext& Context;
 		uint32_t FamilyIndex;
 		ECmdQueueType Type;
-		VkQueueFamilyProperties2 properties;
+		//VkQueueFamilyProperties2 properties;
 
-		std::list<VulkanCmdBufferPtr> RunningCmdBuffers;
-		std::list<VulkanCmdBufferPtr> CmdBufferPool;
+		VkQueue Queue = nullptr;
+		VkSemaphore QueueSemaphore = nullptr;
+		VkSemaphore QueueSemaphoreForSwapchain = nullptr;
 
+		std::list<std::shared_ptr<FCmdBuffer>> SubmitedCmdBuffers;
+		std::list<std::shared_ptr<FCmdBuffer>> FreeCmdBuffers;
+
+		uint64_t RecordingID = 0;
+		uint64_t SubmitID = 0;
+		uint64_t FinishedID = 0;
+
+		std::vector<VkSemaphore> QueueWaitSemaphores;
+		std::vector<uint64_t> QueueWaitSemaphoreValues;
+		std::vector<VkSemaphore> QueueSignalSemaphores;
+		std::vector<uint64_t> QueueSignalSemaphoreValues;
 	public:
-		FQueue(const VulkanContextPtr &ctx, uint32_t queueFamliyIndex, ECmdQueueType cmdType, VkQueueFamilyProperties2 properties);
+		FQueue(const FContext&, uint32_t queueFamliyIndex,uint32_t QueueIndex, ECmdQueueType cmdType);
 		~FQueue();
 		ECmdQueueType GetCmdQueueType() const { return Type; }
 		uint32_t GetFamilyIndex() const { return FamilyIndex; }
-		VkQueueFamilyProperties2 GetFamilyProperties() const { return properties; }
+		//VkQueueFamilyProperties2 GetFamilyProperties() const { return properties; }
 
-		VulkanCmdBufferPtr GetOrCreateCmdBuffer();
-		VulkanCmdBufferPtr CreateCmdBuffer();
+		std::shared_ptr<FCmdBuffer> GetOrCreateCmdBuffer();
+		std::shared_ptr<FCmdBuffer> CreateCmdBuffer();
+		
+		VkQueue GetQueue() const { return Queue; }
+		uint64_t Submit(ICmdList**, uint32_t);
+		uint64_t UpdateFinishedID();
+
+		VkSemaphore GetSemaphoreForSwapchain() const { return QueueSemaphoreForSwapchain; }
+		void AddWaitSemaphore(VkSemaphore InWait, uint64_t ID) { QueueWaitSemaphores.push_back(InWait); QueueWaitSemaphoreValues.push_back(ID); }
+		void AddSignalSemaphore(VkSemaphore InSignal, uint64_t ID) { QueueSignalSemaphores.push_back(InSignal); QueueSignalSemaphoreValues.push_back(ID); }
+		
+
+		void GC();
 	};
-	typedef RefCountPtr<FQueue> VulkanQueuePtr;
 
-	class FGraphicPipeline final : public RefCounter<RHIGraphicPipeline>
+	class FGraphicPipeline final : public RefCounter<IGraphicPipeline>
 	{
 	private:
-		const VulkanContextPtr Context;
-		RHIGraphicPipelineDesc Desc;
-		VkRenderPass RenderPass = nullptr;
+		const FContext& Context;
+		FGraphicPipelineDesc Desc;
 		VkPipelineLayout PipelineLayout = nullptr;
 		VkPipeline Pipeline = nullptr;
 
 	public:
-		FGraphicPipeline(const VulkanContextPtr &, const RHIGraphicPipelineDesc &);
+		FGraphicPipeline(const FContext&, const FGraphicPipelineDesc&);
 		~FGraphicPipeline();
 
-		bool Initalize(const RHIFrameBufferInfo&);
+		VkPipeline GetPipeline() const { return Pipeline; }
+
+		bool Initalize(IFrameBuffer* const);
 	};
 
-	class FCmdList final : public RefCounter<RHICmdList>
+	class FCmdList final : public RefCounter<ICmdList>
 	{
-		VulkanCmdBufferPtr CmdBuf;
-		VulkanContextPtr Context;
+		const FContext& Context;
+		FCmdListDesc Desc;
+		class FDevice* Device;
+
+		std::shared_ptr<FCmdBuffer> CurrentCmdBufferPtr;
+
+		RefCountPtr<IFrameBuffer> ActiveFrameBuffer;
 
 	public:
-		FCmdList(const VulkanContextPtr &, const VulkanCmdBufferPtr &);
+		FCmdList(class FDevice*, const FContext&, const FCmdListDesc&);
+		~FCmdList();
+		std::shared_ptr<FCmdBuffer> GetCurrentCmdBuffer() const { return CurrentCmdBufferPtr; }
+		void PostExcute(uint64_t InSubmitID) { CurrentCmdBufferPtr->SubmitID = InSubmitID; }
+		
+		virtual void BeginCmd() override;
+		virtual void EndCmd() override;
+		virtual void SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
+		virtual void SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height) override;
+		virtual void SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
+		virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset) override;
+		
+		virtual void BindFrameBuffer(IFrameBuffer*) override;
+		virtual void BindGraphicPipeline(IGraphicPipeline*) override;
 	};
 
-	class FBindingLayout final : public RefCounter<RHIBindingLayout>
+	class FBindingLayout final : public RefCounter<IBindingLayout>
 	{
 		VkDescriptorSetLayout DescriptorSetLayout = nullptr;
-		VulkanContextPtr Context;
+		const FContext& Context;
 
 	public:
-		FBindingLayout(const VulkanContextPtr &);
+		FBindingLayout(const FContext&);
 		~FBindingLayout();
-		bool Initalize(const RHIBindingLayoutDesc &desc);
-		virtual NativeObject GetNativeObject() const override { return DescriptorSetLayout; }
-	};
+		bool Initalize(const FBindingLayoutDesc &desc);
 
-	class FSwapchain final : public RefCounter<RHISwapchain>
+		VkDescriptorSetLayout GetDescriptorSetLayout() const { return DescriptorSetLayout; }
+	};
+	
+	class FSwapchain final : public RefCounter<ISwapchain>
 	{
 	private:
 		VkSwapchainKHR Swapchain = nullptr;
+		VkSemaphore SwapchainSemaphore = nullptr;
+		VkSurfaceKHR Surface = nullptr;
 		uint32_t ImageCount = 0;
 		std::vector<VkImage> Images;
 		std::vector<VkImageView> ImageViews;
-		VulkanContextPtr Context;
+		const FContext& Context;
 		VkFormat Format = VkFormat::VK_FORMAT_UNDEFINED;
+		VkExtent2D Size;
 
+		std::vector<IFrameBufferRef> FrameBuffers;
 	public:
-		FSwapchain(const VulkanContextPtr &);
+		FSwapchain(const FContext&);
 		~FSwapchain();
-		bool Initalize(const RHISwapChainDesc &Desc);
+		bool Initalize(const FSwapChainDesc &Desc);
 
 		VkFormat GetFormat() const { return Format; }
 		VkImage GetImage(uint32_t Index) const { CHECK(Index < ImageCount); return Images[Index]; }
 		VkImageView GetImageView(uint32_t Index) const { CHECK(Index < ImageCount); return ImageViews[Index]; }
-
-		virtual RHIFrameBufferRef GetFrameBuffer(uint32_t) const override;
+		VkExtent2D GetSize() const { return Size; }
+		VkSwapchainKHR GetSwapchain() const { return Swapchain; }
+		VkSemaphore GetSemaphore() const { return SwapchainSemaphore; }
+		uint32_t GetFrameBufferIndex(IFrameBuffer*) const;
+		virtual IFrameBufferRef GetFrameBuffer(uint32_t) override;
 	};
 
-	class FFrameBuffer final : public RefCounter<RHIFrameBuffer>
+	class FFrameBuffer final : public RefCounter<IFrameBuffer>
 	{
 	private:
-		RHIFrameBufferInfo Info;
+		const FContext& Context;
+		VkRenderPass RenderPass = nullptr;
+		VkFramebuffer FrameBuffer = nullptr;
+		FFrameBufferInfo Info;
+		VkExtent2D Size;
 	public:
 		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkImage, Image, MAX_RENDER_TARGET_COUNT);
 		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkImageView, ImageView, MAX_RENDER_TARGET_COUNT);
-		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkFramebuffer, FrameBuffer, MAX_RENDER_TARGET_COUNT);
 	public:
-		FFrameBuffer(const FSwapchain& Swapchain,uint32_t Index);
-		virtual const RHIFrameBufferInfo& GetInfo() const override { return Info; };
+		FFrameBuffer(const FContext&,const RefCountPtr<FSwapchain>&,uint32_t);
+		~FFrameBuffer();
+		bool Initalize();
+		VkRenderPass GetRenderPass() const { return RenderPass; }
+		VkFramebuffer GetFrameBuffer() const { return FrameBuffer; }
+		VkExtent2D GetSize() const { return Size; }
+
+		virtual const FFrameBufferInfo& GetInfo() override { return Info; };
 	};
-	
-	class FDevice final : public RefCounter<RHIDevice>
+
+	class FDevice final : public RefCounter<IDevice>
 	{
 	private:
-		VulkanContextPtr Context;
-		static_vector<VulkanQueuePtr, MAX_VULKAN_QUEUE_COUNT> Queues;
-
+		FContext Context;
+		std::vector<std::unique_ptr<FQueue>> Queues;
+	public:
+		FQueue& GetQueue(const ECmdQueueType& Type);
 	public:
 		FDevice();
 		~FDevice() {}
-		bool Initalize(const RHIDeviceDesc &desc);
+		bool Initalize(const FDeviceDesc &desc);
 
-		[[nodiscard]] virtual RHICmdListRef CreateCmdList(const RHICmdListDesc & = RHICmdListDesc()) const override;
+		[[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc & = FCmdListDesc()) override;
 
-		[[nodiscard]] virtual RHIShaderRef CreateShader(const RHIShaderDesc &) const override;
+		[[nodiscard]] virtual IShaderRef CreateShader(const FShaderDesc &) override;
 
-		[[nodiscard]] virtual RHIGraphicPipelineRef CreateGraphicPipeline(const RHIGraphicPipelineDesc &, const RHIFrameBufferRef&) const override;
+		[[nodiscard]] virtual IGraphicPipelineRef CreateGraphicPipeline(const FGraphicPipelineDesc &, IFrameBuffer* const) override;
 
-		[[nodiscard]] virtual RHIBindingLayoutRef CreateBindingLayout(const RHIBindingLayoutDesc &desc) const override;
+		[[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) override;
 
-		[[nodiscard]] virtual RHISwapchainRef CreateSwapChain(const RHISwapChainDesc &desc) const override;
+		[[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc &desc) override;
+		[[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
+		[[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer* ,const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
 
-		[[nodiscard]] virtual NativeObject GetVkInstance() const override;
+		virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
+		virtual void ExcuteCmdList(ICmdList* CmdLists, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
+		virtual void GC() override;
+		
+		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;
 	};
 };

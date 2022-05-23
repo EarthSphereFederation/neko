@@ -113,12 +113,14 @@ namespace Neko
             return ptr != nullptr;
         }
 
-        operator bool()
+        operator bool() noexcept
         {
             return IsValid();
         }
 
         element_type *GetPtr() const { return ptr; }
+
+        operator element_type* () const { return ptr; }
     };
 
     template <typename T>

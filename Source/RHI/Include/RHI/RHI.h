@@ -2,9 +2,11 @@
 #include <atomic>
 #include <memory>
 #include <cassert>
-#include "MiniCore/MiniCore.h"
+#include "MiniCore/RefCounter.h"
+#include "MiniCore/Container.h"
+#include "OS/Window.h"
 #include "Resource.h"
-namespace Neko
+namespace Neko::RHI
 { 
 #define CHECK(result) assert(result);
 #define CHECK_F(result, fmt, ...) \
@@ -64,9 +66,10 @@ namespace Neko
 
     enum class ECmdQueueType : uint8_t
     {
-        Graphic = 0x1,
+        Graphic,
         Compute,
-        Transfer
+        Transfer,
+        Count
     };
 
     enum class EShaderStage : uint8_t
@@ -166,7 +169,7 @@ namespace Neko
         Store
     };
 
-    struct RHIShaderDesc
+    struct FShaderDesc
     {
         NEKO_PARAM_WITH_DEFAULT(const char *, DebugName, "");
         NEKO_PARAM_WITH_DEFAULT(const char *, Blob, "");
@@ -175,14 +178,14 @@ namespace Neko
         NEKO_PARAM_WITH_DEFAULT(uint32_t, Size, 0);
     };
 
-    class RHIShader : public RHIResource
+    class IShader : public IResource
     {
     public:
-        virtual const RHIShaderDesc &GetDesc() const = 0;
+        virtual const FShaderDesc &GetDesc() = 0;
     };
-    typedef RefCountPtr<RHIShader> RHIShaderRef;
+    typedef RefCountPtr<IShader> IShaderRef;
 
-    struct RHIVertexAttribute
+    struct FVertexAttribute
     {
         NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::Undefined);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
@@ -190,22 +193,22 @@ namespace Neko
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Offset, 0);
     };
 
-    struct RHIVertexBinding
+    struct FVertexBinding
     {
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Stride, 0);
         NEKO_PARAM_WITH_DEFAULT(EVertexRate, VertexRate, EVertexRate::Vertex);
     };
 
-    struct RHIVertexInputLayout
+    struct FVertexInputLayout
     {
-        NEKO_PARAM_ARRAY(RHIVertexAttribute, Attribute, MAX_VERTEX_ATTRIBUTE_COUNT);
-        NEKO_PARAM_ARRAY(RHIVertexBinding, Binding, MAX_VERTEX_BINDING_COUNT);
+        NEKO_PARAM_ARRAY(FVertexAttribute, Attribute, MAX_VERTEX_ATTRIBUTE_COUNT);
+        NEKO_PARAM_ARRAY(FVertexBinding, Binding, MAX_VERTEX_BINDING_COUNT);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, AttributeCount, 0);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Unused, 0);
     };
 
-    struct RHIRasterSate
+    struct FRasterSate
     {
         NEKO_PARAM_WITH_DEFAULT(ECullMode, CullMode, ECullMode::Back);
         NEKO_PARAM_WITH_DEFAULT(EPolygonMode, PolygonMode, EPolygonMode::Fill);
@@ -213,9 +216,9 @@ namespace Neko
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Unused, 0);
     };
 
-    struct RHIDepthStencilState
+    struct FDepthStencilState
     {
-        struct RHIStencilState
+        struct FStencilState
         {
             NEKO_PARAM_WITH_DEFAULT(EStencilOp, FailOp, EStencilOp::Keep);
             NEKO_PARAM_WITH_DEFAULT(EStencilOp, DepthFailOp, EStencilOp::Keep);
@@ -230,13 +233,13 @@ namespace Neko
         NEKO_PARAM_WITH_DEFAULT(uint8_t, ReadMask, 0xff);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, WriteMask, 0xff);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, StencilRef, 0u);
-        NEKO_PARAM_WITH_DEFAULT(RHIStencilState, FrontStencil, RHIStencilState());
-        NEKO_PARAM_WITH_DEFAULT(RHIStencilState, BackStencil, RHIStencilState());
+        NEKO_PARAM_WITH_DEFAULT(FStencilState, FrontStencil, FStencilState());
+        NEKO_PARAM_WITH_DEFAULT(FStencilState, BackStencil, FStencilState());
     };
 
-    struct RHIBlendState
+    struct FBlendState
     {
-        struct RHIRenderTarget
+        struct FRenderTarget
         {
             NEKO_PARAM_WITH_DEFAULT(bool, BlendEnable, false);
             NEKO_PARAM_WITH_DEFAULT(EBlendFactor, SrcColor, EBlendFactor::One);
@@ -248,32 +251,32 @@ namespace Neko
             NEKO_PARAM_WITH_DEFAULT(EColorComponent, WriteMask, EColorComponent::All);
         };
 
-        RHIRenderTarget renderTargets[MAX_RENDER_TARGET_COUNT];
-        RHIBlendState &SetRenderTarget(uint32_t index, const RHIRenderTarget &target)
+        FRenderTarget renderTargets[MAX_RENDER_TARGET_COUNT];
+        FBlendState &SetRenderTarget(uint32_t index, const FRenderTarget &target)
         {
             renderTargets[index] = target;
             return *this;
         }
     };
 
-    struct RHIBindingLayoutBinding
+    struct FBindingLayoutBinding
     {
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
         NEKO_PARAM_WITH_DEFAULT(EResourceType, ResourceType, EResourceType::UniformBuffer);
     };
 
-    struct RHIBindingLayoutDesc
+    struct FBindingLayoutDesc
     {
-        NEKO_PARAM_ARRAY(RHIBindingLayoutBinding, Binding, MAX_BINDINGS_PER_LAYOUT); // 256 bytes
+        NEKO_PARAM_ARRAY(FBindingLayoutBinding, Binding, MAX_BINDINGS_PER_LAYOUT); // 256 bytes
         NEKO_PARAM_WITH_DEFAULT(EShaderStage, ShaderStage, EShaderStage::All);   // 1 byte
     };
 
-    class RHIBindingLayout : public RHIResource
+    class IBindingLayout : public IResource
     {
     };
-    typedef RefCountPtr<RHIBindingLayout> RHIBindingLayoutRef;
+    typedef RefCountPtr<IBindingLayout> IBindingLayoutRef;
 
-    struct RHIFrameBufferInfo
+    struct FFrameBufferInfo
     {
         NEKO_PARAM_ARRAY(EFormat, Format, MAX_RENDER_TARGET_COUNT);
         NEKO_PARAM_ARRAY(ELoadOp, LoadAction, MAX_RENDER_TARGET_COUNT);
@@ -284,104 +287,123 @@ namespace Neko
         NEKO_PARAM_WITH_DEFAULT(EStoreOp, DSStoreAction, EStoreOp::Store);
     };
 
-    class RHIFrameBuffer : public RHIResource
+    class IFrameBuffer : public IResource
     {
     public:
-        virtual const RHIFrameBufferInfo& GetInfo() const = 0;
+        virtual const FFrameBufferInfo& GetInfo() = 0;
     };
 
-    typedef RefCountPtr<RHIFrameBuffer> RHIFrameBufferRef;
+    typedef RefCountPtr<IFrameBuffer> IFrameBufferRef;
 
-    struct RHIGraphicPipelineDesc
+    struct FGraphicPipelineDesc
     {
         NEKO_PARAM_WITH_DEFAULT(EPrimitiveTopology, PrimitiveTopology, EPrimitiveTopology::TriangleList);
         NEKO_PARAM_WITH_DEFAULT(ESampleCount, SampleCount, ESampleCount::SampleCount_1);
 
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderRef, VertexShader, RHIShaderRef());
-        NEKO_PARAM_WITH_DEFAULT(RHIShaderRef, PixelShader, RHIShaderRef());
+        NEKO_PARAM_WITH_DEFAULT(IShaderRef, VertexShader, IShaderRef());
+        NEKO_PARAM_WITH_DEFAULT(IShaderRef, PixelShader, IShaderRef());
 
-        NEKO_PARAM_WITH_DEFAULT(RHIVertexInputLayout, VertexInputLayout, RHIVertexInputLayout());
-        NEKO_PARAM_WITH_DEFAULT(RHIRasterSate, RasterState, RHIRasterSate());
-        NEKO_PARAM_WITH_DEFAULT(RHIDepthStencilState, DepthStencilState, RHIDepthStencilState());
-        NEKO_PARAM_WITH_DEFAULT(RHIBlendState, BlendState, RHIBlendState());
-        NEKO_PARAM_ARRAY(RHIBindingLayoutRef, BindingLayout, MAX_BINDING_LAYOUT_COUNT);
+        NEKO_PARAM_WITH_DEFAULT(FVertexInputLayout, VertexInputLayout, FVertexInputLayout());
+        NEKO_PARAM_WITH_DEFAULT(FRasterSate, RasterState, FRasterSate());
+        NEKO_PARAM_WITH_DEFAULT(FDepthStencilState, DepthStencilState, FDepthStencilState());
+        NEKO_PARAM_WITH_DEFAULT(FBlendState, BlendState, FBlendState());
+        NEKO_PARAM_ARRAY(IBindingLayoutRef, BindingLayout, MAX_BINDING_LAYOUT_COUNT);
     };
 
-    class RHIGraphicPipeline : public RHIResource
+    class IGraphicPipeline : public IResource
     {
     };
-    typedef RefCountPtr<RHIGraphicPipeline> RHIGraphicPipelineRef;
-
-    struct RHICmdListDesc
+    typedef RefCountPtr<IGraphicPipeline> IGraphicPipelineRef;
+    
+    struct FCmdListDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(ECmdQueueType, type, ECmdQueueType::Graphic);
+        NEKO_PARAM_WITH_DEFAULT(ECmdQueueType, Type, ECmdQueueType::Graphic);
     };
 
-    class RHICmdList : public RHIResource
+    class ICmdList : public IResource
     {
-    };
-    typedef RefCountPtr<RHICmdList> RHICmdListRef;
+    public:
+        virtual void BeginCmd() = 0;
+        virtual void EndCmd() = 0;
 
-    struct RHISwapChainDesc
+        virtual void SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) = 0;
+        virtual void SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height) = 0;
+        virtual void SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) = 0;
+       
+        virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset) = 0;
+        virtual void BindFrameBuffer(IFrameBuffer *) = 0;
+        virtual void BindGraphicPipeline(IGraphicPipeline*) = 0;
+    };
+    typedef RefCountPtr<ICmdList> ICmdListRef;
+
+    struct FSwapChainDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(NativeObject, Surface, nullptr);
+        OS::FWindow* WindowRawPtr;
+        FSwapChainDesc& SetWindow(OS::FWindow* InWindowRawPtr)
+        {
+            WindowRawPtr = InWindowRawPtr;
+            return *this;
+        }
         NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::Undefined);
         NEKO_PARAM_WITH_DEFAULT(bool, VSync, true);
     };
 
-    class RHISwapchain : public RHIResource
+    class ISwapchain : public IResource
     {
     public:
-        virtual RHIFrameBufferRef GetFrameBuffer(uint32_t) const = 0;
+        virtual IFrameBufferRef GetFrameBuffer(uint32_t) = 0;
     };
-    typedef RefCountPtr<RHISwapchain> RHISwapchainRef;
+    typedef RefCountPtr<ISwapchain> ISwapchainRef;
 
-    struct RHIFeatures
+    struct FFeatures
     {
         NEKO_PARAM_WITH_DEFAULT(bool, Swapchain, false);
     };
 
-    struct RHIDeviceDesc
+    struct FDeviceDesc
     {
         NEKO_PARAM_WITH_DEFAULT(bool, Validation, false);
         NEKO_PARAM_WITH_DEFAULT(uint32_t, GpuIndex, 0);
-        NEKO_PARAM_WITH_DEFAULT(RHIFeatures, Features, RHIFeatures());
+        NEKO_PARAM_WITH_DEFAULT(FFeatures, Features, FFeatures());
 
-        struct RHIVulkanDesc
+        struct FVulkanDesc
         {
             const char **InstanceExtensions = nullptr;
             uint32_t InstanceExtensionNum = 0;
-            RHIVulkanDesc &SetInstanceExtensions(const char **extensions, uint32_t num)
+            FVulkanDesc &SetInstanceExtensions(const char **extensions, uint32_t num)
             {
                 InstanceExtensions = extensions;
                 InstanceExtensionNum = num;
                 return *this;
             }
         };
-        NEKO_PARAM_WITH_DEFAULT(RHIVulkanDesc, VulkanDesc, RHIVulkanDesc());
+        NEKO_PARAM_WITH_DEFAULT(FVulkanDesc, VulkanDesc, FVulkanDesc());
     };
-
-    class RHIDevice : public RHIResource
+    
+    class IDevice : public IResource
     {
-
     public:
-        [[nodiscard]] virtual RHICmdListRef CreateCmdList(const RHICmdListDesc & = RHICmdListDesc()) const = 0;
+        [[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc & = FCmdListDesc()) = 0;
 
-        [[nodiscard]] virtual RHIShaderRef CreateShader(const RHIShaderDesc &) const = 0;
+        [[nodiscard]] virtual IShaderRef CreateShader(const FShaderDesc &) = 0;
 
-        [[nodiscard]] virtual RHIGraphicPipelineRef CreateGraphicPipeline(const RHIGraphicPipelineDesc &, const RHIFrameBufferRef &) const = 0;
+        [[nodiscard]] virtual IGraphicPipelineRef CreateGraphicPipeline(const FGraphicPipelineDesc &, IFrameBuffer* const) = 0;
 
-        [[nodiscard]] virtual RHIBindingLayoutRef CreateBindingLayout(const RHIBindingLayoutDesc &desc) const = 0;
+        [[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) = 0;
 
-        [[nodiscard]] virtual RHISwapchainRef CreateSwapChain(const RHISwapChainDesc &desc) const = 0;
+        [[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc &desc) = 0;
+        [[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
+        [[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
 
-    public:
+        virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
+        virtual void ExcuteCmdList(ICmdList* CmdLists, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
 
-        [[nodiscard]] virtual NativeObject GetVkInstance() const = 0;
+        virtual bool IsCmdQueueValid(const ECmdQueueType&) = 0;
+        virtual void GC() = 0;
 
     };
 
-    typedef RefCountPtr<RHIDevice> RHIDeviceRef;
+    typedef RefCountPtr<IDevice> IDeviceRef;
 
-    extern RHIDeviceRef CreateDevice(const RHIDeviceDesc &desc);
+    extern IDeviceRef CreateDevice(const FDeviceDesc &desc);
 }

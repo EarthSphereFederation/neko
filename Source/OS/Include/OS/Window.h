@@ -3,8 +3,7 @@
 #include <stdexcept>
 
 #include "OS/Input.h"
-#include "RHI/RHI.h"
-
+#include "MiniCore/NativeObject.h"
 namespace Neko::OS
 {
 

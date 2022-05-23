@@ -3,11 +3,11 @@
 #include <map>
 #include <vector>
 
-namespace Neko
+namespace Neko::RHI
 { 
     namespace Vulkan
     {
-        VulkanContext::~VulkanContext()
+        FContext::~FContext()
         {
             if (Device)
             {
@@ -21,10 +21,10 @@ namespace Neko
             }
         }
 
-        FDevice::FDevice() : Context(new VulkanContext())
+        FDevice::FDevice()
         {
         }
-        bool FDevice::Initalize(const RHIDeviceDesc &desc)
+        bool FDevice::Initalize(const FDeviceDesc &desc)
         {
             VkApplicationInfo ApplicationInfo = {};
             ApplicationInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
@@ -39,127 +39,220 @@ namespace Neko
             InstanceCreateInfo.enabledLayerCount = desc.Validation ? 1 : 0;
             InstanceCreateInfo.ppEnabledLayerNames = desc.Validation ? LayerNames : nullptr;
 
-            VK_CHECK_RETURN_FALSE(vkCreateInstance(&InstanceCreateInfo, nullptr, &Context->Instance), "failed to create instance");
+            VK_CHECK_THROW(vkCreateInstance(&InstanceCreateInfo, nullptr, &Context.Instance), "failed to create instance");
 
             uint32_t PhysicalDeviceCount;
-            vkEnumeratePhysicalDevices(Context->Instance, &PhysicalDeviceCount, nullptr);
+            vkEnumeratePhysicalDevices(Context.Instance, &PhysicalDeviceCount, nullptr);
             std::vector<VkPhysicalDevice> PhysicalDevices;
             PhysicalDevices.resize(PhysicalDeviceCount);
-            vkEnumeratePhysicalDevices(Context->Instance, &PhysicalDeviceCount, PhysicalDevices.data());
+            vkEnumeratePhysicalDevices(Context.Instance, &PhysicalDeviceCount, PhysicalDevices.data());
 
             CHECK(desc.GpuIndex < PhysicalDeviceCount);
 
-            Context->PhysicalDevice = PhysicalDevices[desc.GpuIndex];
-            Context->PhyDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-            Context->PhyDeviceMemoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+            Context.PhysicalDevice = PhysicalDevices[desc.GpuIndex];
+            Context.PhyDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+            Context.PhyDeviceMemoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
 
-            vkGetPhysicalDeviceProperties2(Context->PhysicalDevice, &Context->PhyDeviceProperties);
-            vkGetPhysicalDeviceMemoryProperties2(Context->PhysicalDevice, &Context->PhyDeviceMemoryProperties);
+            vkGetPhysicalDeviceProperties2(Context.PhysicalDevice, &Context.PhyDeviceProperties);
+            vkGetPhysicalDeviceMemoryProperties2(Context.PhysicalDevice, &Context.PhyDeviceMemoryProperties);
 
             uint32_t QueueFamilyCount;
-            vkGetPhysicalDeviceQueueFamilyProperties2(Context->PhysicalDevice, &QueueFamilyCount, nullptr);
-            std::vector<VkQueueFamilyProperties2> queueFamilyProperties = {};
-            queueFamilyProperties.resize(QueueFamilyCount);
+            vkGetPhysicalDeviceQueueFamilyProperties2(Context.PhysicalDevice, &QueueFamilyCount, nullptr);
+            std::vector<VkQueueFamilyProperties2> QueueFamilyProperties = {};
+            QueueFamilyProperties.resize(QueueFamilyCount);
             for (size_t i = 0; i < QueueFamilyCount; ++i)
             {
-                queueFamilyProperties[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
+                QueueFamilyProperties[i].sType = VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2;
             }
-            vkGetPhysicalDeviceQueueFamilyProperties2(Context->PhysicalDevice, &QueueFamilyCount, queueFamilyProperties.data());
+            vkGetPhysicalDeviceQueueFamilyProperties2(Context.PhysicalDevice, &QueueFamilyCount, QueueFamilyProperties.data());
 
-            // find Graphic queue,Compute queue and Transfer queue
-            struct QueueData
+            struct FQueueFamliyInfo
             {
-                int32_t FamilyIndex;
-                ECmdQueueType Type;
                 VkQueueFamilyProperties2 Properties;
+                uint32_t UsedQueueCount = 0;
+                std::vector<float> Priorities;
+                std::map<ECmdQueueType, uint32_t> TypeToQueueIndexMap;
+                FQueueFamliyInfo(const VkQueueFamilyProperties2& InProperties):Properties(InProperties)
+                {
+                }
 
-                QueueData(int32_t familyIndex, ECmdQueueType type, VkQueueFamilyProperties2 properties) : FamilyIndex(familyIndex), Type(type), Properties(properties) {}
+                bool IsValid() const
+                {
+                    return UsedQueueCount > 0;
+                }
+    
+                bool HasFittedQueue(VkQueueFlags Flags)
+                {
+                    if (UsedQueueCount < Properties.queueFamilyProperties.queueCount)
+                    {
+                        if (Properties.queueFamilyProperties.queueFlags & Flags)
+                        {
+                            return true;
+                        }
+                    }
+                    return false;
+                }
+
+                void UseQueue(const ECmdQueueType& CmdQueueType) 
+                {
+                    TypeToQueueIndexMap[CmdQueueType] = UsedQueueCount;
+                    UsedQueueCount++;
+                    Priorities.push_back(1.0f);
+                }
+
+                bool FindQueue(const ECmdQueueType& CmdQueueType, uint32_t& QueueIndex)
+                {
+                    for (auto& TypeToQueueIndex : TypeToQueueIndexMap)
+                    {
+                        if (TypeToQueueIndex.first == CmdQueueType)
+                        {
+                            QueueIndex = TypeToQueueIndex.second;
+                            return true;
+                        }
+                    }
+                    return false;
+                }
             };
-            uint32_t UsedQueueFamliyMask = 0;
-            std::vector<QueueData> QueueData;
-            // graphic
-            for (uint32_t q = 0; q < QueueFamilyCount; ++q)
+
+            std::vector<FQueueFamliyInfo> QueueFamliyInfos;
+
+            for (size_t i = 0; i < QueueFamilyCount; ++i)
             {
-                auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
-                if (queueFlags & (VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
+                QueueFamliyInfos.push_back(QueueFamilyProperties[i]);
+            }
+
+            for (uint32_t QueueFamilyIndex = 0; QueueFamilyIndex < QueueFamilyCount; ++QueueFamilyIndex)
+            {
+                // graphic
+                if (QueueFamliyInfos[QueueFamilyIndex].HasFittedQueue(VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
                 {
-                    QueueData.emplace_back(q, ECmdQueueType::Graphic, queueFamilyProperties[q]);
-                    UsedQueueFamliyMask |= (1 << q);
+                    QueueFamliyInfos[QueueFamilyIndex].UseQueue(ECmdQueueType::Graphic);
+                    break;
                 }
             }
-            // compute
-            for (uint32_t q = 0; q < QueueFamilyCount; ++q)
+            for (uint32_t QueueFamilyIndex = 0; QueueFamilyIndex < QueueFamilyCount; ++QueueFamilyIndex)
             {
-                auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
-                if (queueFlags & (VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT) && ((UsedQueueFamliyMask & (1 << q)) == 0))
+                // compute
+                if (QueueFamliyInfos[QueueFamilyIndex].HasFittedQueue(VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT))
                 {
-                    QueueData.emplace_back(q, ECmdQueueType::Compute, queueFamilyProperties[q]);
-                    UsedQueueFamliyMask |= (1 << q);
+                    QueueFamliyInfos[QueueFamilyIndex].UseQueue(ECmdQueueType::Compute);
+                    break;
                 }
             }
-            // transfer
-            for (uint32_t q = 0; q < QueueFamilyCount; ++q)
+            for (uint32_t QueueFamilyIndex = 0; QueueFamilyIndex < QueueFamilyCount; ++QueueFamilyIndex)
             {
-                auto queueFlags = queueFamilyProperties[q].queueFamilyProperties.queueFlags;
-                if (queueFlags & (VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT) && ((UsedQueueFamliyMask & (1 << q)) == 0))
+                // transfer
+                if (QueueFamliyInfos[QueueFamilyIndex].HasFittedQueue(VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT))
                 {
-                    QueueData.emplace_back(q, ECmdQueueType::Transfer, queueFamilyProperties[q]);
-                    UsedQueueFamliyMask |= (1 << q);
+                    QueueFamliyInfos[QueueFamilyIndex].UseQueue(ECmdQueueType::Transfer);
+                    break;
                 }
             }
 
-            std::vector<VkDeviceQueueCreateInfo> QueueInfos = {};
-            QueueInfos.resize(QueueData.size());
-
-            const float Priorities[] = {1.0f};
-            for (int32_t i = 0; i < QueueData.size(); ++i)
+            std::vector<VkDeviceQueueCreateInfo> QueueCreateInfos = {};
+            
+            for (int32_t i = 0; i < QueueFamliyInfos.size(); ++i)
             {
-                auto &queueInfo = QueueInfos[i];
-                auto &queue = QueueData[i];
-                queueInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-                queueInfo.pNext = nullptr;
-                queueInfo.flags = 0;
-                queueInfo.queueFamilyIndex = queue.FamilyIndex;
-                queueInfo.queueCount = 1;
-                queueInfo.pQueuePriorities = Priorities;
+                if (QueueFamliyInfos[i].IsValid())
+                {
+                    VkDeviceQueueCreateInfo QueueCreateInfo = {};
+                    auto& QueueFamliyInfo = QueueFamliyInfos[i];
+                    QueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                    QueueCreateInfo.pNext = nullptr;
+                    QueueCreateInfo.flags = 0;
+                    QueueCreateInfo.queueFamilyIndex = i;
+                    QueueCreateInfo.queueCount = QueueFamliyInfo.UsedQueueCount;
+                    QueueCreateInfo.pQueuePriorities = QueueFamliyInfo.Priorities.data();
+                    QueueCreateInfos.push_back(QueueCreateInfo);
+                } 
             }
 
             std::vector<const char *> Extensions;
+            //required
+            {
+                Extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+            }
+
             if (desc.Features.Swapchain)
             {
                 Extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
             }
+            
+            VkPhysicalDeviceVulkan12Features  Vulkan12Features = {};
+            Vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+            Vulkan12Features.timelineSemaphore = true;
 
             VkPhysicalDeviceFeatures Features = {};
+           
+            Context.DeviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+            Context.DeviceInfo.pNext = &Vulkan12Features;
+            Context.DeviceInfo.queueCreateInfoCount = (uint32_t)QueueCreateInfos.size();
+            Context.DeviceInfo.pQueueCreateInfos = QueueCreateInfos.data(),
+            Context.DeviceInfo.enabledExtensionCount = (uint32_t)Extensions.size();
+            Context.DeviceInfo.ppEnabledExtensionNames = Extensions.data();
+            Context.DeviceInfo.pEnabledFeatures = &Features;
+            Context.DeviceInfo.enabledLayerCount = 0;
+            Context.DeviceInfo.ppEnabledLayerNames = nullptr;
+            Context.DeviceInfo.flags = 0;
 
-            Context->DeviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-            Context->DeviceInfo.pNext = nullptr;
-            Context->DeviceInfo.queueCreateInfoCount = (uint32_t)QueueInfos.size();
-            Context->DeviceInfo.pQueueCreateInfos = QueueInfos.data(),
-            Context->DeviceInfo.enabledExtensionCount = (uint32_t)Extensions.size();
-            Context->DeviceInfo.ppEnabledExtensionNames = Extensions.data();
-            Context->DeviceInfo.pEnabledFeatures = &Features;
-            Context->DeviceInfo.enabledLayerCount = 0;
-            Context->DeviceInfo.ppEnabledLayerNames = nullptr;
-            Context->DeviceInfo.flags = 0;
+            VK_CHECK_THROW(vkCreateDevice(Context.PhysicalDevice, &Context.DeviceInfo, nullptr, &Context.Device), "failed to create device");
 
-            VK_CHECK_RETURN_FALSE(vkCreateDevice(Context->PhysicalDevice, &Context->DeviceInfo, nullptr, &Context->Device), "failed to create device");
-
-            for (auto &q : QueueData)
+            // create queues
+            std::map<ECmdQueueType, std::pair<uint32_t, uint32_t>> QueueMap;
+            uint32_t QueueFamliyIndex = 0;
+            for (auto& QueueFamliyInfo : QueueFamliyInfos)
             {
-                Queues.push_back(new FQueue(Context, q.FamilyIndex, q.Type, q.Properties));
+                for (auto& TypeToQueueIndex : QueueFamliyInfo.TypeToQueueIndexMap)
+                {
+                    QueueMap[TypeToQueueIndex.first] = std::make_pair(QueueFamliyIndex, TypeToQueueIndex.second);
+                }
+                QueueFamliyIndex++;
             }
-
+#define CREATE_QUEUE(CmdQueueType) \
+            if(QueueMap.find(CmdQueueType) == QueueMap.end()) \
+            { \
+                Queues.push_back(nullptr); \
+            } \
+            else \
+            { \
+                Queues.push_back(std::make_unique<FQueue>(Context, QueueMap[CmdQueueType].first, QueueMap[CmdQueueType].second, CmdQueueType)); \
+            } \
+            
+            CREATE_QUEUE(ECmdQueueType::Graphic);
+            CREATE_QUEUE(ECmdQueueType::Compute);
+            CREATE_QUEUE(ECmdQueueType::Transfer);
+#undef CREATE_QUEUE
             return true;
         }
 
-        NativeObject FDevice::GetVkInstance() const
+        FQueue& FDevice::GetQueue(const ECmdQueueType& Type)
         {
-            return Context->Instance;
+            assert((uint32_t)Type < (uint32_t)ECmdQueueType::Count);
+            return *Queues[(uint32_t)Type];
+        }
+
+        bool FDevice::IsCmdQueueValid(const ECmdQueueType& CmdQueueType)
+        {
+            if (Queues[(uint32_t)CmdQueueType])
+            {
+                return true;
+            }
+            return false;
+        }
+
+        void FDevice::GC()
+        {
+            for (auto& Queue : Queues)
+            {
+                if (Queue)
+                {
+                    Queue->GC();
+                }
+            }
         }
     }
-
-    RHIDeviceRef CreateDevice(const RHIDeviceDesc &desc)
+    
+    IDeviceRef CreateDevice(const FDeviceDesc &desc)
     {
         auto DeviceRef = RefCountPtr<Vulkan::FDevice>(new Vulkan::FDevice());
         if (!DeviceRef->Initalize(desc))

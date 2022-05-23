@@ -1,39 +1,33 @@
 #include "Backend.h"
 
-namespace Neko::Vulkan
+namespace Neko::RHI::Vulkan
 { 
-	FGraphicPipeline::FGraphicPipeline(const VulkanContextPtr &ctx, const RHIGraphicPipelineDesc &Desc) : Context(ctx), Desc(Desc)
+	FGraphicPipeline::FGraphicPipeline(const FContext &ctx, const FGraphicPipelineDesc &Desc) : Context(ctx), Desc(Desc)
 	{
 	}
 
 	FGraphicPipeline::~FGraphicPipeline()
 	{
-		if (RenderPass)
-		{
-			vkDestroyRenderPass(Context->Device, RenderPass, Context->AllocationCallbacks);
-			RenderPass = nullptr;
-		}
-
 		if (PipelineLayout)
 		{
-			vkDestroyPipelineLayout(Context->Device, PipelineLayout, Context->AllocationCallbacks);
+			vkDestroyPipelineLayout(Context.Device, PipelineLayout, Context.AllocationCallbacks);
 			PipelineLayout = nullptr;
 		}
 
 		if (Pipeline)
 		{
-			vkDestroyPipeline(Context->Device, Pipeline, Context->AllocationCallbacks);
+			vkDestroyPipeline(Context.Device, Pipeline, Context.AllocationCallbacks);
 			Pipeline = nullptr;
 		}
 	}
 
-	bool FGraphicPipeline::Initalize(const RHIFrameBufferInfo& FrameBufferInfo)
+	bool FGraphicPipeline::Initalize(IFrameBuffer* const FrameBuffer)
 	{
 
-		uint32_t RTCount = (uint32_t)FrameBufferInfo.FormatArray.size();
+		uint32_t RTCount = (uint32_t)FrameBuffer->GetInfo().FormatArray.size();
 		static_vector<VkPipelineShaderStageCreateInfo, MAX_SHADER_STAGE_COUNT> ShaderStages;
 
-		static_vector<RHIShaderRef, MAX_SHADER_STAGE_COUNT> Shaders;
+		static_vector<IShaderRef, MAX_SHADER_STAGE_COUNT> Shaders;
 		Shaders.push_back(Desc.VertexShader);
 		Shaders.push_back(Desc.PixelShader);
 
@@ -84,6 +78,20 @@ namespace Neko::Vulkan
 		InputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		InputAssembly.topology = ConvertToVkPrimitiveTopology(Desc.PrimitiveTopology);
 		InputAssembly.primitiveRestartEnable = VK_FALSE;
+
+		/*VkViewport Viewport = {};
+		Viewport.x = 0;
+		Viewport.y = 0;
+		Viewport.width = 512;
+		Viewport.height = 512;
+		Viewport.minDepth = 0.0f;
+		Viewport.maxDepth = 1.0f;
+
+		VkRect2D Scissor = {};
+		Scissor.offset.x = 0;
+		Scissor.offset.y = 0;
+		Scissor.extent.height = 512;
+		Scissor.extent.width = 128;*/
 
 		VkPipelineViewportStateCreateInfo ViewportState = {};
 		ViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -177,8 +185,9 @@ namespace Neko::Vulkan
 		static_vector<VkDescriptorSetLayout, MAX_BINDING_LAYOUT_COUNT> DescriptorSetLayouts;
 
 		for (int i = 0; i < Desc.BindingLayoutArray.size(); ++i)
-		{
-			DescriptorSetLayouts.push_back(Desc.BindingLayoutArray[i]->GetNativeObject());
+		{ 
+			auto BindingLayout = CAST(FBindingLayout,Desc.BindingLayoutArray[i]);
+			DescriptorSetLayouts.push_back(BindingLayout->GetDescriptorSetLayout());
 		}
 
 		VkPipelineLayoutCreateInfo PipelineLayoutInfo = {};
@@ -188,53 +197,9 @@ namespace Neko::Vulkan
 		PipelineLayoutInfo.pushConstantRangeCount = 0;
 		PipelineLayoutInfo.pPushConstantRanges = nullptr;
 		
-		vkCreatePipelineLayout(Context->Device, &PipelineLayoutInfo, Context->AllocationCallbacks, &PipelineLayout);
+		vkCreatePipelineLayout(Context.Device, &PipelineLayoutInfo, Context.AllocationCallbacks, &PipelineLayout);
 
-		static_vector<VkAttachmentDescription, MAX_RENDER_TARGET_COUNT> ColorAttachments;
-		static_vector<VkAttachmentReference, MAX_RENDER_TARGET_COUNT> ColorAttachmentRefs;
-
-		for (uint32_t i = 0; i < FrameBufferInfo.FormatArray.size(); ++i)
-		{
-			VkAttachmentDescription Attachment = {};
-			Attachment.format = ConvertToVkFormat(FrameBufferInfo.FormatArray[i]);
-			Attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-			Attachment.loadOp = ConvertToVkAttachmentLoadOp(FrameBufferInfo.LoadActionArray[i]);
-			Attachment.storeOp = ConvertToVkVkAttachmentStoreOp(FrameBufferInfo.StoreActionArray[i]);
-			Attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			Attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-			Attachment.initialLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-			Attachment.finalLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL;
-			ColorAttachments.push_back(Attachment);
-
-			VkAttachmentReference Ref = {};
-			Ref.attachment = i;
-			Ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-			ColorAttachmentRefs.push_back(Ref);
-		}
-
-		VkSubpassDescription Subpass = {};
-		Subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-		Subpass.colorAttachmentCount = (uint32_t)ColorAttachmentRefs.size();
-		Subpass.pColorAttachments = ColorAttachmentRefs.data();
-
-		VkSubpassDependency Dependency = {};
-		Dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
-		Dependency.dstSubpass = 0;
-		Dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		Dependency.srcAccessMask = 0;
-		Dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-		Dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		
-		VkRenderPassCreateInfo renderPassInfo = {};
-		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-		renderPassInfo.attachmentCount = (uint32_t)ColorAttachments.size();
-		renderPassInfo.pAttachments = ColorAttachments.data();
-		renderPassInfo.subpassCount = 1;
-		renderPassInfo.pSubpasses = &Subpass;
-		renderPassInfo.dependencyCount = 1;
-		renderPassInfo.pDependencies = &Dependency;
-
-		VK_CHECK_RETURN_FALSE(vkCreateRenderPass(Context->Device, &renderPassInfo, Context->AllocationCallbacks, &RenderPass), "failed to create render pass");
 
 		VkDynamicState DynamicStates[4] = {
 			VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT,
@@ -257,22 +222,23 @@ namespace Neko::Vulkan
 		PipelineInfo.pMultisampleState = &Multisampling;
 		PipelineInfo.pDepthStencilState = &DepthStencilState;
 		PipelineInfo.pColorBlendState = &ColorBlending;
-		PipelineInfo.pDynamicState = &DynamicStateCreateInfo; 
+		PipelineInfo.pDynamicState = &DynamicStateCreateInfo;
 		PipelineInfo.layout = PipelineLayout;
-		PipelineInfo.renderPass = RenderPass;
+		PipelineInfo.renderPass = reinterpret_cast<FFrameBuffer*>(FrameBuffer)->GetRenderPass();
 		PipelineInfo.subpass = 0;
 		PipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		PipelineInfo.basePipelineIndex = -1; 
 
-		VK_CHECK_RETURN_FALSE(vkCreateGraphicsPipelines(Context->Device, VK_NULL_HANDLE, 1, &PipelineInfo, Context->AllocationCallbacks, &Pipeline), "failed to create graphics pipeline");
+		VK_CHECK_THROW(vkCreateGraphicsPipelines(Context.Device, VK_NULL_HANDLE, 1, &PipelineInfo, Context.AllocationCallbacks, &Pipeline), "failed to create graphics pipeline");
 
 		return true;
 	}
 
-	RHIGraphicPipelineRef FDevice::CreateGraphicPipeline(const RHIGraphicPipelineDesc &pipelineDesc, const RHIFrameBufferRef & FrameBuffer) const
+	IGraphicPipelineRef FDevice::CreateGraphicPipeline(const FGraphicPipelineDesc &pipelineDesc, IFrameBuffer* const FrameBuffer)
 	{
+		assert(FrameBuffer != nullptr);
 		auto Pipeline = RefCountPtr<FGraphicPipeline>(new FGraphicPipeline(Context, pipelineDesc));
-		if (!Pipeline->Initalize(FrameBuffer->GetInfo()))
+		if (!Pipeline->Initalize(FrameBuffer))
 		{
 			Pipeline = nullptr;
 		}

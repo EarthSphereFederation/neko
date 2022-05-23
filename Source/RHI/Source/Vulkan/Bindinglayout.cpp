@@ -1,7 +1,7 @@
 #include "Backend.h"
-namespace Neko::Vulkan
+namespace Neko::RHI::Vulkan
 { 
-    FBindingLayout::FBindingLayout(const VulkanContextPtr &ctx) : Context(ctx)
+    FBindingLayout::FBindingLayout(const FContext &ctx) : Context(ctx)
     {
     }
 
@@ -9,12 +9,12 @@ namespace Neko::Vulkan
     {
         if (DescriptorSetLayout)
         {
-            vkDestroyDescriptorSetLayout(Context->Device, DescriptorSetLayout, Context->AllocationCallbacks);
+            vkDestroyDescriptorSetLayout(Context.Device, DescriptorSetLayout, Context.AllocationCallbacks);
             DescriptorSetLayout = nullptr;
         }
     }
 
-    bool FBindingLayout::Initalize(const RHIBindingLayoutDesc &desc)
+    bool FBindingLayout::Initalize(const FBindingLayoutDesc &desc)
     {
         std::vector<VkDescriptorSetLayoutBinding> LayoutBindings;
         LayoutBindings.reserve(desc.BindingArray.size());
@@ -35,11 +35,14 @@ namespace Neko::Vulkan
         LayoutInfo.bindingCount = (uint32_t)LayoutBindings.size();
         LayoutInfo.pBindings = LayoutBindings.data();
 
-        VK_CHECK_RETURN_FALSE(vkCreateDescriptorSetLayout(Context->Device, &LayoutInfo, nullptr, &DescriptorSetLayout), "failed to create DescriptorSetLayout");
+        if (vkCreateDescriptorSetLayout(Context.Device, &LayoutInfo, nullptr, &DescriptorSetLayout))
+        {
+            throw OS::FOSException("Failed to create DescriptorSetLayout");
+        } 
         return true;
     }
 
-    RHIBindingLayoutRef FDevice::CreateBindingLayout(const RHIBindingLayoutDesc &Desc) const
+    IBindingLayoutRef FDevice::CreateBindingLayout(const FBindingLayoutDesc &Desc)
     {
         auto BindingLayout = RefCountPtr<FBindingLayout>(new FBindingLayout(Context));
         if (!BindingLayout->Initalize(Desc))

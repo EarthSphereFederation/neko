@@ -1,7 +1,7 @@
 #include "Backend.h"
-namespace Neko::Vulkan
+namespace Neko::RHI::Vulkan
 { 
-    FShader::FShader(const VulkanContextPtr &ctx) : Context(ctx)
+    FShader::FShader(const FContext &ctx) : Context(ctx)
     {
     }
 
@@ -9,12 +9,12 @@ namespace Neko::Vulkan
     {
         if (ShaderModule)
         {
-            vkDestroyShaderModule(Context->Device, ShaderModule, Context->AllocationCallbacks);
+            vkDestroyShaderModule(Context.Device, ShaderModule, Context.AllocationCallbacks);
             ShaderModule = nullptr;
         }
     }
 
-    bool FShader::Initalize(const RHIShaderDesc &InDesc)
+    bool FShader::Initalize(const FShaderDesc &InDesc)
     {
         Desc = InDesc;
 
@@ -24,11 +24,11 @@ namespace Neko::Vulkan
         ShaderInfo.codeSize = Desc.Size;
         ShaderInfo.pCode = reinterpret_cast<const uint32_t *>(Desc.Blob);
 
-        VK_CHECK_RETURN_FALSE(vkCreateShaderModule(Context->Device, &ShaderInfo, nullptr, &ShaderModule), "failed to create shader \"%s\"", Desc.DebugName);
+        VK_CHECK_THROW(vkCreateShaderModule(Context.Device, &ShaderInfo, nullptr, &ShaderModule), "failed to create shader \"%s\"", Desc.DebugName);
         return true;
     }
 
-    RHIShaderRef FDevice::CreateShader(const RHIShaderDesc &Desc) const
+    IShaderRef FDevice::CreateShader(const FShaderDesc &Desc)
     {
         auto Shader = RefCountPtr<FShader>(new FShader(Context));
         if (!Shader->Initalize(Desc))
