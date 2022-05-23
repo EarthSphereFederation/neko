@@ -1,5 +1,6 @@
 #include "OS/Window.h"
 #include "RHI/RHI.h"
+#include "HLSLCompiler/Compiler.h"
 #include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include <fstream>
@@ -36,7 +37,7 @@ int main(int, char **)
     RHI::FDeviceDesc DevDesc;
     DevDesc.SetVulkanDesc(VkDesc)
         .SetValidation(true)
-        .SetGpuIndex(1)
+        .SetGpuIndex(0)
         .SetFeatures(Features);
 
     auto Device = CreateDevice(DevDesc);
@@ -53,12 +54,23 @@ int main(int, char **)
 
     auto FrameBufferForPipeline = Swapchain->GetFrameBuffer(0);
 
-    auto VertexShaderCode = ReadBinaryFile("./DrawTriangle.vert.spv");
-    auto VSDesc = RHI::FShaderDesc().SetBlob(VertexShaderCode.data()).SetSize(VertexShaderCode.size()).SetEntryPoint("main").SetStage(RHI::EShaderStage::VS);
+    ShaderDesc VertexShaderDesc = {
+            ASSETS_PATH"shaders/DrawTriangle.hlsl",
+            "mainVS",
+            EShaderType::kVertex,
+            EShaderFeatureLevel::k6_5};
+    ShaderDesc PixelShaderDesc = {
+            ASSETS_PATH"shaders/DrawTriangle.hlsl",
+            "mainPS",
+            EShaderType::kPixel,
+            EShaderFeatureLevel::k6_5};
+
+    auto VertexShaderCode = Compile(VertexShaderDesc, EShaderBlobType::kSPIRV);
+    auto VSDesc = RHI::FShaderDesc().SetBlob((char *)VertexShaderCode.data()).SetSize(VertexShaderCode.size()).SetEntryPoint("mainVS").SetStage(RHI::EShaderStage::VS);
     auto VS = Device->CreateShader(VSDesc);
 
-    auto PixelShaderCode = ReadBinaryFile("./DrawTriangle.frag.spv");
-    auto PSDesc = RHI::FShaderDesc().SetBlob(PixelShaderCode.data()).SetSize(PixelShaderCode.size()).SetEntryPoint("main").SetStage(RHI::EShaderStage::PS);
+    auto PixelShaderCode = Compile(PixelShaderDesc, EShaderBlobType::kSPIRV);;
+    auto PSDesc = RHI::FShaderDesc().SetBlob((char *)PixelShaderCode.data()).SetSize(PixelShaderCode.size()).SetEntryPoint("mainPS").SetStage(RHI::EShaderStage::PS);
     auto PS = Device->CreateShader(PSDesc);
 
     auto RasterState = RHI::FRasterSate().SetCullMode(RHI::ECullMode::None);
