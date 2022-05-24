@@ -41,20 +41,63 @@ namespace Neko::RHI
 
             VK_CHECK_THROW(vkCreateInstance(&InstanceCreateInfo, nullptr, &Context.Instance), "failed to create instance");
 
+
+            // enumerate layer Properties
+            uint32_t LayerPropertiesCount = 0;
+            std::vector<VkLayerProperties> LayerProperties;
+            vkEnumerateInstanceLayerProperties(&LayerPropertiesCount, nullptr);
+            LayerProperties.resize(LayerPropertiesCount);
+            vkEnumerateInstanceLayerProperties(&LayerPropertiesCount, LayerProperties.data());
+
+            // enumerate physical devices
             uint32_t PhysicalDeviceCount;
             vkEnumeratePhysicalDevices(Context.Instance, &PhysicalDeviceCount, nullptr);
             std::vector<VkPhysicalDevice> PhysicalDevices;
             PhysicalDevices.resize(PhysicalDeviceCount);
             vkEnumeratePhysicalDevices(Context.Instance, &PhysicalDeviceCount, PhysicalDevices.data());
+            
 
-            CHECK(desc.GpuIndex < PhysicalDeviceCount);
+            VkPhysicalDeviceFeatures Features = {};
+            VkPhysicalDeviceVulkan12Features  Vulkan12Features = {};
+            Vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
-            Context.PhysicalDevice = PhysicalDevices[desc.GpuIndex];
-            Context.PhyDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-            Context.PhyDeviceMemoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+            VkPhysicalDeviceFeatures2 Features2 = {};
+            Features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+            Features2.pNext = &Vulkan12Features;
+           
+            // select Physicla device
+            bool bFound = false;
+            for(auto& PhysicalDevice : PhysicalDevices)
+            {
+               
+                VkPhysicalDeviceProperties2 PhyDeviceProperties = {};
+                PhyDeviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+                vkGetPhysicalDeviceProperties2(PhysicalDevice, &PhyDeviceProperties);
+                VkPhysicalDeviceMemoryProperties2 PhyDeviceMemoryProperties = {};
+                PhyDeviceMemoryProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+                vkGetPhysicalDeviceMemoryProperties2(PhysicalDevice, &PhyDeviceMemoryProperties);
 
-            vkGetPhysicalDeviceProperties2(Context.PhysicalDevice, &Context.PhyDeviceProperties);
-            vkGetPhysicalDeviceMemoryProperties2(Context.PhysicalDevice, &Context.PhyDeviceMemoryProperties);
+                //vkGetPhysicalDeviceFeatures2(PhysicalDevice, &Vulkan12Features);
+                vkGetPhysicalDeviceFeatures(PhysicalDevice, &Features);
+                vkGetPhysicalDeviceFeatures2(PhysicalDevice, &Features2);
+
+                // required features
+                bFound = true;
+                bFound &= Vulkan12Features.timelineSemaphore;
+                if (bFound)
+                {
+                    Context.PhysicalDevice = PhysicalDevice;
+                    Context.PhyDeviceProperties = PhyDeviceProperties;
+                    Context.PhyDeviceMemoryProperties = PhyDeviceMemoryProperties;
+                    break;
+                }
+            }
+
+            if (!bFound)
+            {
+                throw OS::FOSException("Failed to find physical device");
+            }
+          
 
             uint32_t QueueFamilyCount;
             vkGetPhysicalDeviceQueueFamilyProperties2(Context.PhysicalDevice, &QueueFamilyCount, nullptr);
@@ -167,23 +210,17 @@ namespace Neko::RHI
                 } 
             }
 
-            std::vector<const char *> Extensions;
-            //required
+            // gather extensions
+            std::vector<const char*> Extensions;
+            // required
             {
                 Extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
             }
-
             if (desc.Features.Swapchain)
             {
                 Extensions.push_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
             }
-            
-            VkPhysicalDeviceVulkan12Features  Vulkan12Features = {};
-            Vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-            Vulkan12Features.timelineSemaphore = true;
 
-            VkPhysicalDeviceFeatures Features = {};
-           
             Context.DeviceInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
             Context.DeviceInfo.pNext = &Vulkan12Features;
             Context.DeviceInfo.queueCreateInfoCount = (uint32_t)QueueCreateInfos.size();
@@ -254,6 +291,12 @@ namespace Neko::RHI
         void FDevice::WaitIdle()
         {
             vkDeviceWaitIdle(Context.Device);
+        }
+
+        FGPUInfo FDevice::GetGPUInfo()
+        {
+            FGPUInfo Ret = { Context.PhyDeviceProperties.properties.deviceName };
+            return Ret;
         }
     }
     

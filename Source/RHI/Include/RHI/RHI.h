@@ -74,10 +74,10 @@ namespace Neko::RHI
 
     enum class EShaderStage : uint8_t
     {
-        VS = 0x1,
-        PS = 0x2,
+        Vertex = 0x1,
+        Pixel = 0x2,
 
-        All = VS | PS,
+        All = Vertex | Pixel,
     };
     NEKO_ENUM_CLASS_FLAG_OPERATORS(EShaderStage)
 
@@ -363,7 +363,6 @@ namespace Neko::RHI
     struct FDeviceDesc
     {
         NEKO_PARAM_WITH_DEFAULT(bool, Validation, false);
-        NEKO_PARAM_WITH_DEFAULT(uint32_t, GpuIndex, 0);
         NEKO_PARAM_WITH_DEFAULT(FFeatures, Features, FFeatures());
 
         struct FVulkanDesc
@@ -378,6 +377,11 @@ namespace Neko::RHI
             }
         };
         NEKO_PARAM_WITH_DEFAULT(FVulkanDesc, VulkanDesc, FVulkanDesc());
+    };
+
+    struct FGPUInfo
+    {
+        const char* Name;
     };
     
     class IDevice : public IResource
@@ -402,6 +406,7 @@ namespace Neko::RHI
         virtual void GC() = 0;
 
         virtual void WaitIdle() = 0;
+        virtual FGPUInfo GetGPUInfo() = 0;
     };
 
     typedef RefCountPtr<IDevice> IDeviceRef;

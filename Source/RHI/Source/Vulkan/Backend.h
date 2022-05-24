@@ -24,11 +24,11 @@ namespace Neko::RHI::Vulkan
 	{
 		switch (stage)
 		{
-		case EShaderStage::VS:
+		case EShaderStage::Vertex:
 		{
 			return VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT;
 		}
-		case EShaderStage::PS:
+		case EShaderStage::Pixel:
 		{
 			return VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT;
 		}
@@ -583,6 +583,8 @@ namespace Neko::RHI::Vulkan
 		
 		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;
 
-        void WaitIdle();
+		virtual void WaitIdle() override;
+
+		virtual FGPUInfo GetGPUInfo() override;
     };
 };

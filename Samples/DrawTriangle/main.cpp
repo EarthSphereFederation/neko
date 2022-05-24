@@ -7,6 +7,7 @@
 #include <fstream>
 #include <vector>
 #include <filesystem>
+#include <stdio.h>
 
 using namespace Neko;
 
@@ -39,10 +40,12 @@ int main(int, char **)
     RHI::FDeviceDesc DevDesc;
     DevDesc.SetVulkanDesc(VkDesc)
         .SetValidation(true)
-        .SetGpuIndex(0)
         .SetFeatures(Features);
 
     auto Device = CreateDevice(DevDesc);
+    auto GPUInfo = Device->GetGPUInfo();
+
+    printf("GPU : %s is used\n", GPUInfo.Name);
 
     auto Window = OS::FWindowBuilder()
                       .SetSize(512, 512)
@@ -74,11 +77,19 @@ int main(int, char **)
             EShaderFeatureLevel::k6_5};
 
     auto VertexShaderCode = Compile(VertexShaderDesc, EShaderBlobType::kSPIRV);
-    auto VSDesc = RHI::FShaderDesc().SetBlob((char *)VertexShaderCode.data()).SetSize(VertexShaderCode.size()).SetEntryPoint("mainVS").SetStage(RHI::EShaderStage::VS);
+    auto VSDesc = RHI::FShaderDesc()
+        .SetBlob((char *)VertexShaderCode.data())
+        .SetSize(VertexShaderCode.size())
+        .SetEntryPoint("mainVS")
+        .SetStage(RHI::EShaderStage::Vertex);
     auto VS = Device->CreateShader(VSDesc);
 
     auto PixelShaderCode = Compile(PixelShaderDesc, EShaderBlobType::kSPIRV);;
-    auto PSDesc = RHI::FShaderDesc().SetBlob((char *)PixelShaderCode.data()).SetSize(PixelShaderCode.size()).SetEntryPoint("mainPS").SetStage(RHI::EShaderStage::PS);
+    auto PSDesc = RHI::FShaderDesc()
+        .SetBlob((char *)PixelShaderCode.data())
+        .SetSize(PixelShaderCode.size())
+        .SetEntryPoint("mainPS")
+        .SetStage(RHI::EShaderStage::Pixel);
     auto PS = Device->CreateShader(PSDesc);
 
     auto RasterState = RHI::FRasterSate().SetCullMode(RHI::ECullMode::None);
