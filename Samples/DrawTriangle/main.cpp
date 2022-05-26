@@ -113,7 +113,10 @@ int main(int, char **)
 
         auto FrameBuffer = Device->QueueWaitNextFrameBuffer(Swapchain);
 
-        auto CmdList = Device->CreateCmdList();
+        auto CmdPool = Device->CreateCmdPool();
+        auto CmdDesc = RHI::FCmdListDesc().SetCmdPool(CmdPool);
+
+        auto CmdList = Device->CreateCmdList(CmdDesc);
         CmdList->BeginCmd();
 
         CmdList->BindFrameBuffer(FrameBuffer);

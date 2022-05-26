@@ -4,15 +4,6 @@
 #include <vector>
 namespace Neko::RHI::Vulkan
 { 
-    FCmdBuffer::~FCmdBuffer()
-    {
-        if (CmdPool)
-        {
-            vkDestroyCommandPool(Context.Device, CmdPool, Context.AllocationCallbacks);
-            CmdPool = nullptr;
-        }
-    }
-
     FQueue::FQueue(const FContext &Ctx, uint32_t InQueueFamliyIndex, uint32_t QueueIndex, ECmdQueueType InCmdType) : Context(Ctx),FamilyIndex(InQueueFamliyIndex), Type(InCmdType)
     { 
         vkGetDeviceQueue(Context.Device, InQueueFamliyIndex, QueueIndex, &Queue);
@@ -64,56 +55,45 @@ namespace Neko::RHI::Vulkan
     {
         auto _FinishedID = UpdateFinishedID();
         
-        auto Submitions = std::move(SubmitedCmdBuffers);
-        for (auto& Submition : Submitions)
+        auto TmpUsedCmdPools = std::move(UsedCmdPools);
+        for (auto& CmdPool : TmpUsedCmdPools)
         {
-            if (Submition->SubmitID <= _FinishedID)
+            if (CmdPool->SubmitID <= _FinishedID)
             {
-                Submition->SubmitID = 0;
-                FreeCmdBuffers.push_back(Submition);
+                CmdPool->Reset();
+                FreeCmdPools.push_back(CmdPool);
             }
             else
             {
-                SubmitedCmdBuffers.push_back(Submition);
+                UsedCmdPools.push_back(CmdPool);
             }
         }
     }
 
-    std::shared_ptr<FCmdBuffer> FQueue::CreateCmdBuffer()
-    {
-        auto CmdBuf = std::make_shared<FCmdBuffer>(Context);
-        VkCommandPoolCreateInfo CommandPoolInfo = {};
-        CommandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        CommandPoolInfo.queueFamilyIndex = FamilyIndex;
-        CommandPoolInfo.flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-
-        VK_CHECK_THROW(vkCreateCommandPool(Context.Device, &CommandPoolInfo, nullptr, &CmdBuf->CmdPool), "Failed to create cmd pool with queue type %d", (uint32_t)Type);
-
-        VkCommandBufferAllocateInfo CmdBufAllocateInfo = {};
-        CmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        CmdBufAllocateInfo.commandPool = CmdBuf->CmdPool;
-        CmdBufAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        CmdBufAllocateInfo.commandBufferCount = 1;
-
-        VK_CHECK_THROW(vkAllocateCommandBuffers(Context.Device, &CmdBufAllocateInfo, &CmdBuf->CmdBuf), "Failed to create cmd buffer");
-        return CmdBuf;
+    std::shared_ptr<FReusableCmdPool> FQueue::CreateCmdPool()
+    { 
+        auto CmdPool = std::make_shared<FReusableCmdPool>(Context, GetFamilyIndex());
+        return CmdPool;
     }
 
-    std::shared_ptr<FCmdBuffer> FQueue::GetOrCreateCmdBuffer()
+    std::shared_ptr<FReusableCmdPool> FQueue::GetOrCreateCmdPool()
     {
-        RecordingID++;
-        std::shared_ptr<FCmdBuffer> CmdBuffer;
-        if (FreeCmdBuffers.size() > 0)
+        std::lock_guard Lock(Mutex);
+
+        std::shared_ptr<FReusableCmdPool> CmdPool;
+        if (FreeCmdPools.size() > 0)
         {
-            CmdBuffer = FreeCmdBuffers.front();
-            FreeCmdBuffers.pop_front();
+            CmdPool = FreeCmdPools.front();
+            FreeCmdPools.pop_front();
         }
         else
         {
-            CmdBuffer = CreateCmdBuffer();
+            CmdPool = CreateCmdPool();
         }
-        CmdBuffer->RecordingID = RecordingID;
-        return CmdBuffer;
+
+        UsedCmdPools.push_back(CmdPool);
+
+        return CmdPool;
     }
 
     uint64_t FQueue::Submit(ICmdList** CmdLists, uint32_t CmdListNum)
@@ -135,12 +115,8 @@ namespace Neko::RHI::Vulkan
         {
             if (CmdLists[i])
             {
-                auto CmdBuf = reinterpret_cast<FCmdList*>(CmdLists[i])->GetCurrentCmdBuffer();
-                if (CmdBuf)
-                {
-                    CmdBufs.push_back(CmdBuf->CmdBuf);
-                    SubmitedCmdBuffers.push_back(CmdBuf);
-                }
+                auto CmdBuf = reinterpret_cast<FCmdList*>(CmdLists[i])->GetCmdBuffer();
+                CmdBufs.push_back(CmdBuf);
             }
         }
 
@@ -196,47 +172,91 @@ namespace Neko::RHI::Vulkan
         return SubmitID;
     }
 
+    FReusableCmdPool::FReusableCmdPool(const FContext& Ctx, uint32_t FamliyIndex) :Context(Ctx)
+    {
+        VkCommandPoolCreateInfo CommandPoolInfo = {};
+        CommandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        CommandPoolInfo.queueFamilyIndex = FamliyIndex;
+        CommandPoolInfo.flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+
+        VK_CHECK_THROW(vkCreateCommandPool(Context.Device, &CommandPoolInfo, Context.AllocationCallbacks, &CmdPool),"Failed to create command pool");
+    }
+
+    FReusableCmdPool::~FReusableCmdPool()
+    {
+        if (CmdPool)
+        {
+            vkDestroyCommandPool(Context.Device, CmdPool, Context.AllocationCallbacks);
+            CmdPool = nullptr;
+        }
+    }
+
+    VkCommandBuffer  FReusableCmdPool::AllocCmdBuffer()
+    {
+        VkCommandBuffer CmdBuffer;
+        VkCommandBufferAllocateInfo CmdBufAllocateInfo = {};
+        CmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        CmdBufAllocateInfo.commandPool = CmdPool;
+        CmdBufAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        CmdBufAllocateInfo.commandBufferCount = 1;
+
+        VK_CHECK_THROW(vkAllocateCommandBuffers(Context.Device, &CmdBufAllocateInfo, &CmdBuffer), "Failed to create cmd buffer");
+        CmdBuffers.push_back(CmdBuffer);
+        return CmdBuffer;
+    }
+
+    void  FReusableCmdPool::Reset()
+    {
+        SubmitID = 0;
+        vkFreeCommandBuffers(Context.Device, CmdPool, CmdBuffers.size(), CmdBuffers.data());
+        
+        CmdBuffers.clear();
+    }
+
+    FCmdPool::FCmdPool(FQueue& InQueue) :Queue(InQueue)
+    {
+        ReusableCmdPool = Queue.GetOrCreateCmdPool();
+    };
+
+    FCmdPool::~FCmdPool()
+    {
+    }
+
+
     FCmdList::FCmdList(FDevice* InDevice, const FContext & Ctx, const FCmdListDesc& InDesc):Device(InDevice), Context(Ctx), Desc(InDesc)
     {
+        CmdBuffer = reinterpret_cast<FCmdPool*>(Desc.CmdPool)->GetReusableCmdPool()->AllocCmdBuffer();
     }
 
     FCmdList::~FCmdList()
     {
-
     }
 
     void FCmdList::BeginCmd()
     {
-        if (!Device->IsCmdQueueValid(Desc.Type))
-        {
-            throw OS::FOSException("Invalid command queue type");
-        }
-        auto& Queue = Device->GetQueue(Desc.Type);
-        CurrentCmdBufferPtr = Queue.GetOrCreateCmdBuffer();
-       
         VkCommandBufferBeginInfo CommandBufferBeginInfo = {};
         CommandBufferBeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
         CommandBufferBeginInfo.flags = 0;
 
-        VK_CHECK_THROW(vkBeginCommandBuffer(CurrentCmdBufferPtr->GetCommandBuffer(), &CommandBufferBeginInfo),"Failed to begin command buffer");
+        VK_CHECK_THROW(vkBeginCommandBuffer(CmdBuffer, &CommandBufferBeginInfo),"Failed to begin command buffer");
     }
 
     void FCmdList::EndCmd()
     {
         if (ActiveFrameBuffer)
         {
-            vkCmdEndRenderPass(CurrentCmdBufferPtr->GetCommandBuffer());
+            vkCmdEndRenderPass(CmdBuffer);
             ActiveFrameBuffer = nullptr;
         }
 
-        VK_CHECK_THROW(vkEndCommandBuffer(CurrentCmdBufferPtr->GetCommandBuffer()), "Failed to end command buffer");
+        VK_CHECK_THROW(vkEndCommandBuffer(CmdBuffer), "Failed to end command buffer");
     }
     
     void FCmdList::BindFrameBuffer(IFrameBuffer* InFrameBuffer)
     {
         if (ActiveFrameBuffer)
         {
-            vkCmdEndRenderPass(CurrentCmdBufferPtr->GetCommandBuffer());
+            vkCmdEndRenderPass(CmdBuffer);
             ActiveFrameBuffer = nullptr;
         }
 
@@ -259,13 +279,13 @@ namespace Neko::RHI::Vulkan
         RenderPassBeginInfo.clearValueCount = (uint32_t)ClearValues.size();
         RenderPassBeginInfo.pClearValues = ClearValues.data();
 
-        vkCmdBeginRenderPass(CurrentCmdBufferPtr->GetCommandBuffer(), &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderPass(CmdBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
     }
 
     void FCmdList::BindGraphicPipeline(IGraphicPipeline* InGraphicPipeline)
     {
        auto GraphicPipeline = reinterpret_cast<FGraphicPipeline*>(InGraphicPipeline);
-       vkCmdBindPipeline(CurrentCmdBufferPtr->GetCommandBuffer(), VK_PIPELINE_BIND_POINT_GRAPHICS, GraphicPipeline->GetPipeline());
+       vkCmdBindPipeline(CmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, GraphicPipeline->GetPipeline());
     }
 
     void FCmdList::SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth, float MaxDepth)
@@ -277,7 +297,7 @@ namespace Neko::RHI::Vulkan
         Viewport.height = (float)Height;
         Viewport.minDepth = MinDepth;
         Viewport.maxDepth = MaxDepth;
-        vkCmdSetViewport(CurrentCmdBufferPtr->GetCommandBuffer(), 0, 1, &Viewport);
+        vkCmdSetViewport(CmdBuffer, 0, 1, &Viewport);
     }
 
     void FCmdList::SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height)
@@ -287,7 +307,7 @@ namespace Neko::RHI::Vulkan
         Scissor.offset.y = Y;
         Scissor.extent.width = Width;
         Scissor.extent.height = Height;
-        vkCmdSetScissor(CurrentCmdBufferPtr->GetCommandBuffer(), 0, 1, &Scissor);
+        vkCmdSetScissor(CmdBuffer, 0, 1, &Scissor);
     }
 
     void FCmdList::SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth, float MaxDepth)
@@ -298,7 +318,20 @@ namespace Neko::RHI::Vulkan
     
     void FCmdList::Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset)
     {
-        vkCmdDraw(CurrentCmdBufferPtr->GetCommandBuffer(), VertexNum, InstanceNum, VertexOffset, InstanceOffset);
+        vkCmdDraw(CmdBuffer, VertexNum, InstanceNum, VertexOffset, InstanceOffset);
+    }
+
+    ICmdPoolRef FDevice::CreateCmdPool(const ECmdQueueType& CmdQueueType)
+    {
+        if (IsCmdQueueValid(CmdQueueType))
+        {
+            auto& Queue = GetQueue(CmdQueueType);
+            return new FCmdPool(Queue);
+        }
+        else
+        {
+            return nullptr;
+        }
     }
 
     ICmdListRef FDevice::CreateCmdList(const FCmdListDesc &InDesc)
@@ -306,23 +339,26 @@ namespace Neko::RHI::Vulkan
         return new FCmdList(this, Context, InDesc);
     }
 
-    void FDevice::ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum, const ECmdQueueType& CmdQueueType)
+    void FDevice::ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum)
     {
+        assert(CmdListNum > 0);
+        auto CmdQueueType = CmdLists[0]->GetDesc().CmdPool->GetCmdQueueType();
         if (IsCmdQueueValid(CmdQueueType))
         {
             auto& Queue = GetQueue(CmdQueueType);
             auto SubmitionId = Queue.Submit(CmdLists, CmdListNum);
 
-            for (uint32_t CmdListIndex = 0; CmdListIndex < CmdListNum; ++CmdListIndex)
+            for (int32_t i = 0; i < CmdListNum; ++i)
             {
-                reinterpret_cast<FCmdList*>(CmdLists[CmdListIndex])->PostExcute(SubmitionId);
+                auto CmdPool = reinterpret_cast<FCmdPool*>(reinterpret_cast<FCmdList*>(CmdLists[i])->GetDesc().CmdPool);
+                CmdPool->GetReusableCmdPool()->SubmitID = SubmitionId;
             }
         }
     }
 
-    void FDevice::ExcuteCmdList(ICmdList* CmdList, const ECmdQueueType& CmdQueueType)
+    void FDevice::ExcuteCmdList(ICmdList* CmdList)
     {
         ICmdList* CmdLists[1] = {CmdList};
-        ExcuteCmdLists(CmdLists, 1, CmdQueueType);
+        ExcuteCmdLists(CmdLists, 1);
     }
 }

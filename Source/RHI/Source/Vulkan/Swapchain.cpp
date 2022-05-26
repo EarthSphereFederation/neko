@@ -11,6 +11,7 @@ namespace Neko::RHI::Vulkan
 
         vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &SwapchainSemaphore);
     }
+
     FSwapchain::~FSwapchain()
     {
         if (Swapchain)

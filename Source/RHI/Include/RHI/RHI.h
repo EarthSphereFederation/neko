@@ -314,10 +314,18 @@ namespace Neko::RHI
     {
     };
     typedef RefCountPtr<IGraphicPipeline> IGraphicPipelineRef;
+
+    class ICmdPool : public IResource
+    {
+    private:
+    public:
+        virtual ECmdQueueType GetCmdQueueType() = 0;
+    };
+    typedef RefCountPtr<ICmdPool> ICmdPoolRef;
     
     struct FCmdListDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(ECmdQueueType, Type, ECmdQueueType::Graphic);
+        NEKO_PARAM_WITH_DEFAULT(ICmdPool*, CmdPool, nullptr);
     };
 
     class ICmdList : public IResource
@@ -333,6 +341,8 @@ namespace Neko::RHI
         virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset) = 0;
         virtual void BindFrameBuffer(IFrameBuffer *) = 0;
         virtual void BindGraphicPipeline(IGraphicPipeline*) = 0;
+
+        virtual const FCmdListDesc& GetDesc() const = 0;
     };
     typedef RefCountPtr<ICmdList> ICmdListRef;
 
@@ -387,7 +397,8 @@ namespace Neko::RHI
     class IDevice : public IResource
     {
     public:
-        [[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc & = FCmdListDesc()) = 0;
+        [[nodiscard]] virtual ICmdPoolRef CreateCmdPool(const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
+        [[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc &) = 0;
 
         [[nodiscard]] virtual IShaderRef CreateShader(const FShaderDesc &) = 0;
 
@@ -399,8 +410,8 @@ namespace Neko::RHI
         [[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
         [[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
 
-        virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
-        virtual void ExcuteCmdList(ICmdList* CmdLists, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
+        virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum) = 0;
+        virtual void ExcuteCmdList(ICmdList* CmdList) = 0;
 
         virtual bool IsCmdQueueValid(const ECmdQueueType&) = 0;
         virtual void GC() = 0;

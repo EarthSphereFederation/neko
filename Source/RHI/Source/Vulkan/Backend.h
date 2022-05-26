@@ -5,6 +5,7 @@
 #include <list>
 #include <iostream>
 #include <vector>
+#include <mutex>
 namespace Neko::RHI::Vulkan
 { 
 
@@ -379,28 +380,28 @@ namespace Neko::RHI::Vulkan
 		const VkShaderModule GetVkShaderModule() const { return ShaderModule; }
 	};
 
-	class FCmdBuffer
+	class FQueue;
+	class FReusableCmdPool
 	{
 	private:
-		VkCommandPool CmdPool = nullptr;
-		VkCommandBuffer CmdBuf = nullptr;
 		const FContext& Context;
+		VkCommandPool CmdPool = nullptr;
 	public:
-		uint64_t RecordingID = 0;
 		uint64_t SubmitID = 0;
 
-	public:
-		FCmdBuffer(const FContext& Ctx) : Context(Ctx) {}
-		~FCmdBuffer();
+		std::vector<VkCommandBuffer> CmdBuffers;
 
-		VkCommandBuffer GetCommandBuffer() const { return CmdBuf; }
+		FReusableCmdPool(const FContext&, uint32_t FamliyIndex);
+		~FReusableCmdPool();
+		
+		VkCommandPool GetCmdPool() const { return CmdPool; }
 
-		friend class FQueue;
+		VkCommandBuffer AllocCmdBuffer();
+
+		void Reset();
 	};
 
-	
-
-	class FQueue final : public RefCounter<IResource>
+	class FQueue
 	{
 	private:
 		const FContext& Context;
@@ -412,8 +413,8 @@ namespace Neko::RHI::Vulkan
 		VkSemaphore QueueSemaphore = nullptr;
 		VkSemaphore QueueSemaphoreForSwapchain = nullptr;
 
-		std::list<std::shared_ptr<FCmdBuffer>> SubmitedCmdBuffers;
-		std::list<std::shared_ptr<FCmdBuffer>> FreeCmdBuffers;
+		std::list<std::shared_ptr<FReusableCmdPool>> UsedCmdPools;
+		std::list<std::shared_ptr<FReusableCmdPool>> FreeCmdPools;
 
 		uint64_t RecordingID = 0;
 		uint64_t SubmitID = 0;
@@ -423,6 +424,8 @@ namespace Neko::RHI::Vulkan
 		std::vector<uint64_t> QueueWaitSemaphoreValues;
 		std::vector<VkSemaphore> QueueSignalSemaphores;
 		std::vector<uint64_t> QueueSignalSemaphoreValues;
+
+		std::mutex Mutex;
 	public:
 		FQueue(const FContext&, uint32_t queueFamliyIndex,uint32_t QueueIndex, ECmdQueueType cmdType);
 		~FQueue();
@@ -430,8 +433,8 @@ namespace Neko::RHI::Vulkan
 		uint32_t GetFamilyIndex() const { return FamilyIndex; }
 		//VkQueueFamilyProperties2 GetFamilyProperties() const { return properties; }
 
-		std::shared_ptr<FCmdBuffer> GetOrCreateCmdBuffer();
-		std::shared_ptr<FCmdBuffer> CreateCmdBuffer();
+		std::shared_ptr<FReusableCmdPool> GetOrCreateCmdPool();
+		std::shared_ptr<FReusableCmdPool> CreateCmdPool();
 		
 		VkQueue GetQueue() const { return Queue; }
 		uint64_t Submit(ICmdList**, uint32_t);
@@ -441,7 +444,6 @@ namespace Neko::RHI::Vulkan
 		void AddWaitSemaphore(VkSemaphore InWait, uint64_t ID) { QueueWaitSemaphores.push_back(InWait); QueueWaitSemaphoreValues.push_back(ID); }
 		void AddSignalSemaphore(VkSemaphore InSignal, uint64_t ID) { QueueSignalSemaphores.push_back(InSignal); QueueSignalSemaphoreValues.push_back(ID); }
 		
-
 		void GC();
 	};
 
@@ -462,21 +464,33 @@ namespace Neko::RHI::Vulkan
 		bool Initalize(IFrameBuffer* const);
 	};
 
+	class FCmdPool final : public RefCounter<ICmdPool>
+	{
+	private:
+		FQueue& Queue;
+		std::shared_ptr<FReusableCmdPool> ReusableCmdPool;
+	public:
+		FCmdPool(FQueue& InQueue);
+		~FCmdPool();
+
+		virtual ECmdQueueType GetCmdQueueType() override { return Queue.GetCmdQueueType(); }
+
+		std::shared_ptr<FReusableCmdPool> GetReusableCmdPool() const { return ReusableCmdPool; }
+	};
+
 	class FCmdList final : public RefCounter<ICmdList>
 	{
 		const FContext& Context;
 		FCmdListDesc Desc;
 		class FDevice* Device;
-
-		std::shared_ptr<FCmdBuffer> CurrentCmdBufferPtr;
+		VkCommandBuffer CmdBuffer = nullptr;
 
 		RefCountPtr<IFrameBuffer> ActiveFrameBuffer;
 
 	public:
 		FCmdList(class FDevice*, const FContext&, const FCmdListDesc&);
 		~FCmdList();
-		std::shared_ptr<FCmdBuffer> GetCurrentCmdBuffer() const { return CurrentCmdBufferPtr; }
-		void PostExcute(uint64_t InSubmitID) { CurrentCmdBufferPtr->SubmitID = InSubmitID; }
+		VkCommandBuffer GetCmdBuffer() const { return CmdBuffer; }
 		
 		virtual void BeginCmd() override;
 		virtual void EndCmd() override;
@@ -487,6 +501,8 @@ namespace Neko::RHI::Vulkan
 		
 		virtual void BindFrameBuffer(IFrameBuffer*) override;
 		virtual void BindGraphicPipeline(IGraphicPipeline*) override;
+
+		virtual const FCmdListDesc& GetDesc() const { return Desc; }
 	};
 
 	class FBindingLayout final : public RefCounter<IBindingLayout>
@@ -565,7 +581,8 @@ namespace Neko::RHI::Vulkan
 		~FDevice() {}
 		bool Initalize(const FDeviceDesc &desc);
 
-		[[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc & = FCmdListDesc()) override;
+		[[nodiscard]] virtual ICmdPoolRef CreateCmdPool(const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
+		[[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc &) override;
 
 		[[nodiscard]] virtual IShaderRef CreateShader(const FShaderDesc &) override;
 
@@ -577,8 +594,8 @@ namespace Neko::RHI::Vulkan
 		[[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
 		[[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer* ,const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
 
-		virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
-		virtual void ExcuteCmdList(ICmdList* CmdLists, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
+		virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum) override;
+		virtual void ExcuteCmdList(ICmdList* CmdLists) override;
 		virtual void GC() override;
 		
 		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;
