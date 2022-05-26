@@ -83,7 +83,7 @@ namespace Neko::RHI
 
                 // required features
                 bFound = true;
-                bFound &= Vulkan12Features.timelineSemaphore;
+                bFound = bFound && Vulkan12Features.timelineSemaphore;
                 if (bFound)
                 {
                     Context.PhysicalDevice = PhysicalDevice;
@@ -109,107 +109,30 @@ namespace Neko::RHI
             }
             vkGetPhysicalDeviceQueueFamilyProperties2(Context.PhysicalDevice, &QueueFamilyCount, QueueFamilyProperties.data());
 
-            struct FQueueFamliyInfo
-            {
-                VkQueueFamilyProperties2 Properties;
-                uint32_t UsedQueueCount = 0;
-                std::vector<float> Priorities;
-                std::map<ECmdQueueType, uint32_t> TypeToQueueIndexMap;
-                FQueueFamliyInfo(const VkQueueFamilyProperties2& InProperties):Properties(InProperties)
-                {
-                }
-
-                bool IsValid() const
-                {
-                    return UsedQueueCount > 0;
-                }
-    
-                bool HasFittedQueue(VkQueueFlags Flags)
-                {
-                    if (UsedQueueCount < Properties.queueFamilyProperties.queueCount)
-                    {
-                        if (Properties.queueFamilyProperties.queueFlags & Flags)
-                        {
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-
-                void UseQueue(const ECmdQueueType& CmdQueueType) 
-                {
-                    TypeToQueueIndexMap[CmdQueueType] = UsedQueueCount;
-                    UsedQueueCount++;
-                    Priorities.push_back(1.0f);
-                }
-
-                bool FindQueue(const ECmdQueueType& CmdQueueType, uint32_t& QueueIndex)
-                {
-                    for (auto& TypeToQueueIndex : TypeToQueueIndexMap)
-                    {
-                        if (TypeToQueueIndex.first == CmdQueueType)
-                        {
-                            QueueIndex = TypeToQueueIndex.second;
-                            return true;
-                        }
-                    }
-                    return false;
-                }
-            };
-
-            std::vector<FQueueFamliyInfo> QueueFamliyInfos;
-
-            for (size_t i = 0; i < QueueFamilyCount; ++i)
-            {
-                QueueFamliyInfos.push_back(QueueFamilyProperties[i]);
-            }
-
-            for (uint32_t QueueFamilyIndex = 0; QueueFamilyIndex < QueueFamilyCount; ++QueueFamilyIndex)
-            {
-                // graphic
-                if (QueueFamliyInfos[QueueFamilyIndex].HasFittedQueue(VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT))
-                {
-                    QueueFamliyInfos[QueueFamilyIndex].UseQueue(ECmdQueueType::Graphic);
-                    break;
-                }
-            }
-            for (uint32_t QueueFamilyIndex = 0; QueueFamilyIndex < QueueFamilyCount; ++QueueFamilyIndex)
-            {
-                // compute
-                if (QueueFamliyInfos[QueueFamilyIndex].HasFittedQueue(VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT))
-                {
-                    QueueFamliyInfos[QueueFamilyIndex].UseQueue(ECmdQueueType::Compute);
-                    break;
-                }
-            }
-            for (uint32_t QueueFamilyIndex = 0; QueueFamilyIndex < QueueFamilyCount; ++QueueFamilyIndex)
-            {
-                // transfer
-                if (QueueFamliyInfos[QueueFamilyIndex].HasFittedQueue(VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT))
-                {
-                    QueueFamliyInfos[QueueFamilyIndex].UseQueue(ECmdQueueType::Transfer);
-                    break;
-                }
-            }
-
+            uint32_t QueueFamilyIndex = 0;
             std::vector<VkDeviceQueueCreateInfo> QueueCreateInfos = {};
-            
-            for (int32_t i = 0; i < QueueFamliyInfos.size(); ++i)
+            std::vector<std::vector<float>> PrioritiesArray = {};
+            for (auto& QueueFamilyProperty : QueueFamilyProperties)
             {
-                if (QueueFamliyInfos[i].IsValid())
+                auto QueueCount = QueueFamilyProperty.queueFamilyProperties.queueCount;
+                std::vector<float>& Priorities = PrioritiesArray.emplace_back();
+                Priorities.resize(QueueCount);
+                for (uint32_t i = 0; i < QueueCount; ++i)
                 {
-                    VkDeviceQueueCreateInfo QueueCreateInfo = {};
-                    auto& QueueFamliyInfo = QueueFamliyInfos[i];
-                    QueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-                    QueueCreateInfo.pNext = nullptr;
-                    QueueCreateInfo.flags = 0;
-                    QueueCreateInfo.queueFamilyIndex = i;
-                    QueueCreateInfo.queueCount = QueueFamliyInfo.UsedQueueCount;
-                    QueueCreateInfo.pQueuePriorities = QueueFamliyInfo.Priorities.data();
-                    QueueCreateInfos.push_back(QueueCreateInfo);
-                } 
+                    Priorities[i] = 1.0f;
+                }
+                    
+                VkDeviceQueueCreateInfo QueueCreateInfo = {};
+                QueueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+                QueueCreateInfo.pNext = nullptr;
+                QueueCreateInfo.flags = 0;
+                QueueCreateInfo.queueFamilyIndex = QueueFamilyIndex;
+                QueueCreateInfo.queueCount = QueueFamilyProperty.queueFamilyProperties.queueCount;
+                QueueCreateInfo.pQueuePriorities = Priorities.data();
+                QueueCreateInfos.push_back(QueueCreateInfo);
+                QueueFamilyIndex++;
             }
-
+            
             // gather extensions
             std::vector<const char*> Extensions;
             // required
@@ -234,52 +157,42 @@ namespace Neko::RHI
 
             VK_CHECK_THROW(vkCreateDevice(Context.PhysicalDevice, &Context.DeviceInfo, nullptr, &Context.Device), "failed to create device");
 
-            // create queues
-            std::map<ECmdQueueType, std::pair<uint32_t, uint32_t>> QueueMap;
-            uint32_t QueueFamliyIndex = 0;
-            for (auto& QueueFamliyInfo : QueueFamliyInfos)
+            QueueFamilyIndex = 0;
+            for (auto& QueueFamilyProperty : QueueFamilyProperties)
             {
-                for (auto& TypeToQueueIndex : QueueFamliyInfo.TypeToQueueIndexMap)
+                ECmdQueueType QueueType = ECmdQueueType::Undefined;
+                if (QueueFamilyProperty.queueFamilyProperties.queueFlags & VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT)
                 {
-                    QueueMap[TypeToQueueIndex.first] = std::make_pair(QueueFamliyIndex, TypeToQueueIndex.second);
+                    QueueType = QueueType | ECmdQueueType::Graphic;
                 }
-                QueueFamliyIndex++;
-            }
-#define CREATE_QUEUE(CmdQueueType) \
-            if(QueueMap.find(CmdQueueType) == QueueMap.end()) \
-            { \
-                Queues.push_back(nullptr); \
-            } \
-            else \
-            { \
-                Queues.push_back(std::make_unique<FQueue>(Context, QueueMap[CmdQueueType].first, QueueMap[CmdQueueType].second, CmdQueueType)); \
-            } \
-            
-            CREATE_QUEUE(ECmdQueueType::Graphic);
-            CREATE_QUEUE(ECmdQueueType::Compute);
-            CREATE_QUEUE(ECmdQueueType::Transfer);
-#undef CREATE_QUEUE
-            return true;
-        }
+                if (QueueFamilyProperty.queueFamilyProperties.queueFlags & VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT)
+                {
+                    QueueType = QueueType | ECmdQueueType::Compute;
+                }
+                if (QueueFamilyProperty.queueFamilyProperties.queueFlags & VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT)
+                {
+                    QueueType = QueueType | ECmdQueueType::Transfer;
+                }
 
-        FQueue& FDevice::GetQueue(const ECmdQueueType& Type)
-        {
-            assert((uint32_t)Type < (uint32_t)ECmdQueueType::Count);
-            return *Queues[(uint32_t)Type];
+                for (uint32_t QueueIndex = 0; QueueIndex < (uint32_t)QueueFamilyProperty.queueFamilyProperties.queueCount; ++QueueIndex)
+                {
+                    FreeQueues.push_back(new FQueue(Context, QueueFamilyIndex, QueueIndex, QueueType));
+                }
+
+                QueueFamilyIndex++;
+            }
+
+            return true;
         }
 
         bool FDevice::IsCmdQueueValid(const ECmdQueueType& CmdQueueType)
         {
-            if (Queues[(uint32_t)CmdQueueType])
-            {
-                return true;
-            }
             return false;
         }
 
         void FDevice::GC()
         {
-            for (auto& Queue : Queues)
+            for (auto& Queue : UsedQueues)
             {
                 if (Queue)
                 {

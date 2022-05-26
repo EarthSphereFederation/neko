@@ -401,7 +401,7 @@ namespace Neko::RHI::Vulkan
 		void Reset();
 	};
 
-	class FQueue
+	class FQueue final : public RefCounter<IQueue>
 	{
 	private:
 		const FContext& Context;
@@ -431,10 +431,11 @@ namespace Neko::RHI::Vulkan
 		~FQueue();
 		ECmdQueueType GetCmdQueueType() const { return Type; }
 		uint32_t GetFamilyIndex() const { return FamilyIndex; }
-		//VkQueueFamilyProperties2 GetFamilyProperties() const { return properties; }
+		
+		bool IsTypeFit(ECmdQueueType InType) { return (uint8_t)(InType & Type) > 0; }
 
-		std::shared_ptr<FReusableCmdPool> GetOrCreateCmdPool();
-		std::shared_ptr<FReusableCmdPool> CreateCmdPool();
+		std::shared_ptr<FReusableCmdPool> GetOrCreateReusableCmdPool();
+		std::shared_ptr<FReusableCmdPool> CreateReusableCmdPool();
 		
 		VkQueue GetQueue() const { return Queue; }
 		uint64_t Submit(ICmdList**, uint32_t);
@@ -445,6 +446,10 @@ namespace Neko::RHI::Vulkan
 		void AddSignalSemaphore(VkSemaphore InSignal, uint64_t ID) { QueueSignalSemaphores.push_back(InSignal); QueueSignalSemaphoreValues.push_back(ID); }
 		
 		void GC();
+
+		[[nodiscard]] virtual ICmdPoolRef CreateCmdPool() override;
+		virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum) override;
+		virtual void ExcuteCmdList(ICmdList* CmdList) override;
 	};
 
 	class FGraphicPipeline final : public RefCounter<IGraphicPipeline>
@@ -467,30 +472,33 @@ namespace Neko::RHI::Vulkan
 	class FCmdPool final : public RefCounter<ICmdPool>
 	{
 	private:
+		const FContext& Context;
 		FQueue& Queue;
 		std::shared_ptr<FReusableCmdPool> ReusableCmdPool;
 	public:
-		FCmdPool(FQueue& InQueue);
+		FCmdPool(const FContext& Context,FQueue& InQueue);
 		~FCmdPool();
 
-		virtual ECmdQueueType GetCmdQueueType() override { return Queue.GetCmdQueueType(); }
-
 		std::shared_ptr<FReusableCmdPool> GetReusableCmdPool() const { return ReusableCmdPool; }
+
+		[[nodiscard]] virtual ICmdListRef CreateCmdList() override;
+		virtual ECmdQueueType GetCmdQueueType() override { return Queue.GetCmdQueueType(); }
 	};
 
 	class FCmdList final : public RefCounter<ICmdList>
 	{
 		const FContext& Context;
-		FCmdListDesc Desc;
-		class FDevice* Device;
+		FCmdPool* CmdPool;
+		//class FDevice* Device;
 		VkCommandBuffer CmdBuffer = nullptr;
 
 		RefCountPtr<IFrameBuffer> ActiveFrameBuffer;
 
 	public:
-		FCmdList(class FDevice*, const FContext&, const FCmdListDesc&);
+		FCmdList(const FContext&, FCmdPool*);
 		~FCmdList();
 		VkCommandBuffer GetCmdBuffer() const { return CmdBuffer; }
+		FCmdPool*  GetCmdPool() const { return CmdPool; }
 		
 		virtual void BeginCmd() override;
 		virtual void EndCmd() override;
@@ -501,8 +509,6 @@ namespace Neko::RHI::Vulkan
 		
 		virtual void BindFrameBuffer(IFrameBuffer*) override;
 		virtual void BindGraphicPipeline(IGraphicPipeline*) override;
-
-		virtual const FCmdListDesc& GetDesc() const { return Desc; }
 	};
 
 	class FBindingLayout final : public RefCounter<IBindingLayout>
@@ -573,16 +579,14 @@ namespace Neko::RHI::Vulkan
 	{
 	private:
 		FContext Context;
-		std::vector<std::unique_ptr<FQueue>> Queues;
-	public:
-		FQueue& GetQueue(const ECmdQueueType& Type);
+		std::vector<RefCountPtr<FQueue>> FreeQueues;
+		std::vector<RefCountPtr<FQueue>> UsedQueues;
 	public:
 		FDevice();
 		~FDevice() {}
 		bool Initalize(const FDeviceDesc &desc);
 
-		[[nodiscard]] virtual ICmdPoolRef CreateCmdPool(const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
-		[[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc &) override;
+		[[nodiscard]] virtual IQueueRef CreateQueue(const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
 
 		[[nodiscard]] virtual IShaderRef CreateShader(const FShaderDesc &) override;
 
@@ -591,11 +595,9 @@ namespace Neko::RHI::Vulkan
 		[[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) override;
 
 		[[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc &desc) override;
-		[[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
-		[[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer* ,const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
+		[[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, IQueue*) override;
+		[[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer* , IQueue*) override;
 
-		virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum) override;
-		virtual void ExcuteCmdList(ICmdList* CmdLists) override;
 		virtual void GC() override;
 		
 		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;

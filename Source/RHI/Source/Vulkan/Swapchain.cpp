@@ -175,13 +175,9 @@ namespace Neko::RHI::Vulkan
         return SwapchainRef;
     }
 
-    IFrameBufferRef FDevice::QueueWaitNextFrameBuffer(ISwapchain* Swapchain, const ECmdQueueType& CmdQueueType)
+    IFrameBufferRef FDevice::QueueWaitNextFrameBuffer(ISwapchain* Swapchain, IQueue* InQueue)
     {
-        if (!this->IsCmdQueueValid(CmdQueueType))
-        {
-            throw OS::FOSException("Invalid command queue type");
-        }
-        auto& Queue = this->GetQueue(CmdQueueType);
+        auto& Queue = *reinterpret_cast<FQueue*>(InQueue);
         
         auto SignalSemaphore = reinterpret_cast<FSwapchain*>(Swapchain)->GetSemaphore();
         auto VkSwapchainPtr = reinterpret_cast<FSwapchain*>(Swapchain)->GetSwapchain();
@@ -192,13 +188,10 @@ namespace Neko::RHI::Vulkan
         return Swapchain->GetFrameBuffer(ImageIndex);
     }
 
-    void FDevice::QueueWaitPresent(ISwapchain* InSwapchain, IFrameBuffer* FrameBuffer, const ECmdQueueType& CmdQueueType)
+    void FDevice::QueueWaitPresent(ISwapchain* InSwapchain, IFrameBuffer* FrameBuffer, IQueue* InQueue)
     {
-        if (!this->IsCmdQueueValid(CmdQueueType))
-        {
-            throw OS::FOSException("Invalid command queue type");
-        }
-        auto& Queue = this->GetQueue(CmdQueueType);
+       
+        auto& Queue = *reinterpret_cast<FQueue*>(InQueue);
         
         auto Swapchain = reinterpret_cast<FSwapchain*>(InSwapchain);
         auto VkSwapchainPtr = Swapchain->GetSwapchain();

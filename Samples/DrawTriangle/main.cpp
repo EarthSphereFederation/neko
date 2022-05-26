@@ -101,6 +101,8 @@ int main(int, char **)
 
     auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc, FrameBufferForPipeline);
 
+    auto GraphicQueue = Device->CreateQueue();
+
     // mainloop
 
     while (!Window.ShouldClose())
@@ -111,12 +113,11 @@ int main(int, char **)
             Window.SetCloseFlag(true);
         }
 
-        auto FrameBuffer = Device->QueueWaitNextFrameBuffer(Swapchain);
+        auto FrameBuffer = Device->QueueWaitNextFrameBuffer(Swapchain, GraphicQueue);
 
-        auto CmdPool = Device->CreateCmdPool();
-        auto CmdDesc = RHI::FCmdListDesc().SetCmdPool(CmdPool);
-
-        auto CmdList = Device->CreateCmdList(CmdDesc);
+        auto CmdPool = GraphicQueue->CreateCmdPool();
+        
+        auto CmdList = CmdPool->CreateCmdList();
         CmdList->BeginCmd();
 
         CmdList->BindFrameBuffer(FrameBuffer);
@@ -129,9 +130,9 @@ int main(int, char **)
 
         CmdList->EndCmd();
 
-        Device->ExcuteCmdList(CmdList);
+        GraphicQueue->ExcuteCmdList(CmdList);
 
-        Device->QueueWaitPresent(Swapchain, FrameBuffer);
+        Device->QueueWaitPresent(Swapchain, FrameBuffer,GraphicQueue);
 
         Device->GC();
     }

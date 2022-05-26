@@ -66,11 +66,13 @@ namespace Neko::RHI
 
     enum class ECmdQueueType : uint8_t
     {
-        Graphic,
-        Compute,
-        Transfer,
-        Count
+        Undefined = 0x0,
+        Graphic = 0x1,
+        Compute = 0x2,
+        Transfer = 0x4
     };
+
+    NEKO_ENUM_CLASS_FLAG_OPERATORS(ECmdQueueType);
 
     enum class EShaderStage : uint8_t
     {
@@ -315,19 +317,6 @@ namespace Neko::RHI
     };
     typedef RefCountPtr<IGraphicPipeline> IGraphicPipelineRef;
 
-    class ICmdPool : public IResource
-    {
-    private:
-    public:
-        virtual ECmdQueueType GetCmdQueueType() = 0;
-    };
-    typedef RefCountPtr<ICmdPool> ICmdPoolRef;
-    
-    struct FCmdListDesc
-    {
-        NEKO_PARAM_WITH_DEFAULT(ICmdPool*, CmdPool, nullptr);
-    };
-
     class ICmdList : public IResource
     {
     public:
@@ -341,10 +330,26 @@ namespace Neko::RHI
         virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset) = 0;
         virtual void BindFrameBuffer(IFrameBuffer *) = 0;
         virtual void BindGraphicPipeline(IGraphicPipeline*) = 0;
-
-        virtual const FCmdListDesc& GetDesc() const = 0;
     };
     typedef RefCountPtr<ICmdList> ICmdListRef;
+
+    class ICmdPool : public IResource
+    {
+    private:
+    public:
+        [[nodiscard]] virtual ICmdListRef CreateCmdList() = 0;
+        virtual ECmdQueueType GetCmdQueueType() = 0;
+    };
+    typedef RefCountPtr<ICmdPool> ICmdPoolRef;
+
+    class IQueue : public IResource
+    {
+    public:
+        [[nodiscard]] virtual ICmdPoolRef CreateCmdPool() = 0;
+        virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum) = 0;
+        virtual void ExcuteCmdList(ICmdList* CmdList) = 0;
+    };
+    typedef RefCountPtr<IQueue> IQueueRef;
 
     struct FSwapChainDesc
     {
@@ -397,8 +402,8 @@ namespace Neko::RHI
     class IDevice : public IResource
     {
     public:
-        [[nodiscard]] virtual ICmdPoolRef CreateCmdPool(const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
-        [[nodiscard]] virtual ICmdListRef CreateCmdList(const FCmdListDesc &) = 0;
+
+        [[nodiscard]] virtual IQueueRef CreateQueue(const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
 
         [[nodiscard]] virtual IShaderRef CreateShader(const FShaderDesc &) = 0;
 
@@ -407,12 +412,9 @@ namespace Neko::RHI
         [[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) = 0;
 
         [[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc &desc) = 0;
-        [[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
-        [[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer*, const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) = 0;
-
-        virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum) = 0;
-        virtual void ExcuteCmdList(ICmdList* CmdList) = 0;
-
+        [[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, IQueue *) = 0;
+        [[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer*, IQueue*) = 0;
+        
         virtual bool IsCmdQueueValid(const ECmdQueueType&) = 0;
         virtual void GC() = 0;
 

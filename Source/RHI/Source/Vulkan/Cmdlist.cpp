@@ -70,13 +70,13 @@ namespace Neko::RHI::Vulkan
         }
     }
 
-    std::shared_ptr<FReusableCmdPool> FQueue::CreateCmdPool()
+    std::shared_ptr<FReusableCmdPool> FQueue::CreateReusableCmdPool()
     { 
         auto CmdPool = std::make_shared<FReusableCmdPool>(Context, GetFamilyIndex());
         return CmdPool;
     }
 
-    std::shared_ptr<FReusableCmdPool> FQueue::GetOrCreateCmdPool()
+    std::shared_ptr<FReusableCmdPool> FQueue::GetOrCreateReusableCmdPool()
     {
         std::lock_guard Lock(Mutex);
 
@@ -88,12 +88,17 @@ namespace Neko::RHI::Vulkan
         }
         else
         {
-            CmdPool = CreateCmdPool();
+            CmdPool = CreateReusableCmdPool();
         }
 
         UsedCmdPools.push_back(CmdPool);
 
         return CmdPool;
+    }
+
+    ICmdPoolRef FQueue::CreateCmdPool()
+    {
+        return new FCmdPool(Context,*this);
     }
 
     uint64_t FQueue::Submit(ICmdList** CmdLists, uint32_t CmdListNum)
@@ -208,24 +213,30 @@ namespace Neko::RHI::Vulkan
     void  FReusableCmdPool::Reset()
     {
         SubmitID = 0;
-        vkFreeCommandBuffers(Context.Device, CmdPool, CmdBuffers.size(), CmdBuffers.data());
+        vkFreeCommandBuffers(Context.Device, CmdPool, (uint32_t)CmdBuffers.size(), CmdBuffers.data());
         
         CmdBuffers.clear();
     }
 
-    FCmdPool::FCmdPool(FQueue& InQueue) :Queue(InQueue)
+    FCmdPool::FCmdPool(const FContext& Ctx,FQueue& InQueue) :Context(Ctx),Queue(InQueue)
     {
-        ReusableCmdPool = Queue.GetOrCreateCmdPool();
+        ReusableCmdPool = Queue.GetOrCreateReusableCmdPool();
     };
 
     FCmdPool::~FCmdPool()
     {
     }
 
-
-    FCmdList::FCmdList(FDevice* InDevice, const FContext & Ctx, const FCmdListDesc& InDesc):Device(InDevice), Context(Ctx), Desc(InDesc)
+    ICmdListRef FCmdPool::CreateCmdList()
     {
-        CmdBuffer = reinterpret_cast<FCmdPool*>(Desc.CmdPool)->GetReusableCmdPool()->AllocCmdBuffer();
+        return new FCmdList(Context, this);
+    }
+
+
+    FCmdList::FCmdList(const FContext & Ctx, FCmdPool* InCmdPool): Context(Ctx), CmdPool(InCmdPool)
+    {
+        assert(CmdPool != nullptr);
+        CmdBuffer = CmdPool->GetReusableCmdPool()->AllocCmdBuffer();
     }
 
     FCmdList::~FCmdList()
@@ -321,42 +332,43 @@ namespace Neko::RHI::Vulkan
         vkCmdDraw(CmdBuffer, VertexNum, InstanceNum, VertexOffset, InstanceOffset);
     }
 
-    ICmdPoolRef FDevice::CreateCmdPool(const ECmdQueueType& CmdQueueType)
+    IQueueRef FDevice::CreateQueue(const ECmdQueueType& CmdQueueType)
     {
-        if (IsCmdQueueValid(CmdQueueType))
-        {
-            auto& Queue = GetQueue(CmdQueueType);
-            return new FCmdPool(Queue);
-        }
-        else
-        {
-            return nullptr;
-        }
-    }
+        RefCountPtr<FQueue> Queue = nullptr;
 
-    ICmdListRef FDevice::CreateCmdList(const FCmdListDesc &InDesc)
-    {
-        return new FCmdList(this, Context, InDesc);
-    }
-
-    void FDevice::ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum)
-    {
-        assert(CmdListNum > 0);
-        auto CmdQueueType = CmdLists[0]->GetDesc().CmdPool->GetCmdQueueType();
-        if (IsCmdQueueValid(CmdQueueType))
+        auto Queues = std::move(FreeQueues);
+        for (uint32_t i = 0; i < Queues.size(); ++i)
         {
-            auto& Queue = GetQueue(CmdQueueType);
-            auto SubmitionId = Queue.Submit(CmdLists, CmdListNum);
-
-            for (int32_t i = 0; i < CmdListNum; ++i)
+            if (Queues[i]->IsTypeFit(CmdQueueType))
             {
-                auto CmdPool = reinterpret_cast<FCmdPool*>(reinterpret_cast<FCmdList*>(CmdLists[i])->GetDesc().CmdPool);
-                CmdPool->GetReusableCmdPool()->SubmitID = SubmitionId;
+                Queue = Queues[i];
+                UsedQueues.push_back(Queues[i]);
+            }
+            else
+            {
+                FreeQueues.push_back(Queues[i]);
             }
         }
+        if (!Queue)
+        {
+            throw OS::FOSException("Failed to find queue");
+        }
+        return Queue;
+    }
+    
+    void FQueue::ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum)
+    {
+       assert(CmdListNum > 0);
+       auto SubmitionId = Submit(CmdLists, CmdListNum);
+
+       for (uint32_t i = 0; i < (uint32_t)CmdListNum; ++i)
+       {
+           auto CmdPool = reinterpret_cast<FCmdList*>(CmdLists[i])->GetCmdPool();
+           CmdPool->GetReusableCmdPool()->SubmitID = SubmitionId;
+       }
     }
 
-    void FDevice::ExcuteCmdList(ICmdList* CmdList)
+    void FQueue::ExcuteCmdList(ICmdList* CmdList)
     {
         ICmdList* CmdLists[1] = {CmdList};
         ExcuteCmdLists(CmdLists, 1);
