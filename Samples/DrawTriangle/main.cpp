@@ -102,7 +102,6 @@ int main(int, char **)
     auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc, FrameBufferForPipeline);
 
     auto GraphicQueue = Device->CreateQueue();
-
     // mainloop
 
     while (!Window.ShouldClose())

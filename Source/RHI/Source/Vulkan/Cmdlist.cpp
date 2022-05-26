@@ -339,7 +339,7 @@ namespace Neko::RHI::Vulkan
         auto Queues = std::move(FreeQueues);
         for (uint32_t i = 0; i < Queues.size(); ++i)
         {
-            if (Queues[i]->IsTypeFit(CmdQueueType))
+            if (Queues[i]->IsTypeFit(CmdQueueType) && !Queue)
             {
                 Queue = Queues[i];
                 UsedQueues.push_back(Queues[i]);
