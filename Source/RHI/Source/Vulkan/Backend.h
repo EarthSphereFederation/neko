@@ -411,7 +411,6 @@ namespace Neko::RHI::Vulkan
 
 		VkQueue Queue = nullptr;
 		VkSemaphore QueueSemaphore = nullptr;
-		VkSemaphore QueueSemaphoreForSwapchain = nullptr;
 
 		std::list<std::shared_ptr<FReusableCmdPool>> UsedCmdPools;
 		std::list<std::shared_ptr<FReusableCmdPool>> FreeCmdPools;
@@ -441,7 +440,6 @@ namespace Neko::RHI::Vulkan
 		uint64_t Submit(ICmdList**, uint32_t);
 		uint64_t UpdateFinishedID();
 
-		VkSemaphore GetSemaphoreForSwapchain() const { return QueueSemaphoreForSwapchain; }
 		void AddWaitSemaphore(VkSemaphore InWait, uint64_t ID) { QueueWaitSemaphores.push_back(InWait); QueueWaitSemaphoreValues.push_back(ID); }
 		void AddSignalSemaphore(VkSemaphore InSignal, uint64_t ID) { QueueSignalSemaphores.push_back(InSignal); QueueSignalSemaphoreValues.push_back(ID); }
 		
@@ -528,16 +526,24 @@ namespace Neko::RHI::Vulkan
 	{
 	private:
 		VkSwapchainKHR Swapchain = nullptr;
-		VkSemaphore SwapchainSemaphore = nullptr;
 		VkSurfaceKHR Surface = nullptr;
 		uint32_t ImageCount = 0;
 		std::vector<VkImage> Images;
 		std::vector<VkImageView> ImageViews;
 		const FContext& Context;
 		VkFormat Format = VkFormat::VK_FORMAT_UNDEFINED;
-		VkExtent2D Size;
-
+		VkExtent2D Size = VkExtent2D();
 		std::vector<IFrameBufferRef> FrameBuffers;
+
+
+		uint64_t FrameIndex = 0;
+		struct FFrameResource
+		{
+			VkFence Fence;
+			VkSemaphore AcquireSemaphore;
+			VkSemaphore PresentSemaphore;
+		};
+		std::vector<FFrameResource> FrameResources;
 	public:
 		FSwapchain(const FContext&);
 		~FSwapchain();
@@ -548,8 +554,14 @@ namespace Neko::RHI::Vulkan
 		VkImageView GetImageView(uint32_t Index) const { CHECK(Index < ImageCount); return ImageViews[Index]; }
 		VkExtent2D GetSize() const { return Size; }
 		VkSwapchainKHR GetSwapchain() const { return Swapchain; }
-		VkSemaphore GetSemaphore() const { return SwapchainSemaphore; }
+		VkSemaphore GetAcquireSemaphore() const;
+		VkSemaphore GetPresentSemaphore() const;
+
+		VkFence GetFrameFence() const;
+
 		uint32_t GetFrameBufferIndex(IFrameBuffer*) const;
+		uint64_t NextFrame();
+
 		virtual IFrameBufferRef GetFrameBuffer(uint32_t) override;
 	};
 

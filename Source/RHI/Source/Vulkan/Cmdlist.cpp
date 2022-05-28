@@ -19,13 +19,6 @@ namespace Neko::RHI::Vulkan
 
             vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &QueueSemaphore);
         }
-       
-        {
-            VkSemaphoreCreateInfo SemaphoreCreateInfo = {};
-            SemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-            vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &QueueSemaphoreForSwapchain);
-        }
     }
 
     FQueue::~FQueue()
@@ -34,12 +27,6 @@ namespace Neko::RHI::Vulkan
         {
             vkDestroySemaphore(Context.Device, QueueSemaphore, Context.AllocationCallbacks);
             QueueSemaphore = nullptr;
-        }
-
-        if (QueueSemaphoreForSwapchain)
-        {
-            vkDestroySemaphore(Context.Device, QueueSemaphoreForSwapchain, Context.AllocationCallbacks);
-            QueueSemaphoreForSwapchain = nullptr;
         }
     }
 
@@ -131,9 +118,6 @@ namespace Neko::RHI::Vulkan
         SignalSemaphores.push_back(QueueSemaphore);
         SignalSemaphoreValues.push_back(SubmitID);
 
-        SignalSemaphores.push_back(QueueSemaphoreForSwapchain);
-        SignalSemaphoreValues.push_back(0);
-
         for (uint32_t i=0;i< QueueSignalSemaphores.size();++i)
         {
             SignalSemaphores.push_back(QueueSignalSemaphores[i]);
@@ -169,10 +153,10 @@ namespace Neko::RHI::Vulkan
 
         vkQueueSubmit(Queue, 1, &SubmitInfo, nullptr);
 
-        bool Ret = QueueWaitSemaphores.empty();
-        Ret = QueueWaitSemaphoreValues.empty();
-        Ret = QueueSignalSemaphores.empty();
-        Ret = QueueSignalSemaphoreValues.empty();
+        QueueWaitSemaphores.clear();
+        QueueWaitSemaphoreValues.clear();
+        QueueSignalSemaphores.clear();
+        QueueSignalSemaphoreValues.clear();
 
         return SubmitID;
     }

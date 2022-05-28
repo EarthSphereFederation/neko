@@ -6,10 +6,6 @@ namespace Neko::RHI::Vulkan
 { 
     FSwapchain::FSwapchain(const FContext& Ctx) : Context(Ctx)
     {
-        VkSemaphoreCreateInfo SemaphoreCreateInfo = {};
-        SemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-
-        vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &SwapchainSemaphore);
     }
 
     FSwapchain::~FSwapchain()
@@ -28,9 +24,15 @@ namespace Neko::RHI::Vulkan
             Swapchain = nullptr;
         }
 
-        if (SwapchainSemaphore)
+        if (FrameResources.size() > 0)
         {
-            vkDestroySemaphore(Context.Device, SwapchainSemaphore, Context.AllocationCallbacks);
+            for (auto& FrameRes : FrameResources)
+            {
+                vkDestroyFence(Context.Device, FrameRes.Fence, Context.AllocationCallbacks);
+                vkDestroySemaphore(Context.Device, FrameRes.AcquireSemaphore, Context.AllocationCallbacks);
+                vkDestroySemaphore(Context.Device, FrameRes.PresentSemaphore, Context.AllocationCallbacks);
+            }
+            FrameResources.clear();
         }
 
         if (Surface)
@@ -141,6 +143,20 @@ namespace Neko::RHI::Vulkan
 
             }
 
+            FrameResources.resize(ImageCount);
+            for (uint32_t i = 0; i < ImageCount; ++i)
+            {
+                VkFenceCreateInfo FenceCreateInfo = {};
+                FenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+                FenceCreateInfo.flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT;
+                vkCreateFence(Context.Device, &FenceCreateInfo, Context.AllocationCallbacks, &FrameResources[i].Fence);
+
+                VkSemaphoreCreateInfo SemaphoreCreateInfo = {};
+                SemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+                vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &FrameResources[i].AcquireSemaphore);
+                vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &FrameResources[i].PresentSemaphore);
+            }
+
             return true;
         }
         return false;
@@ -150,6 +166,20 @@ namespace Neko::RHI::Vulkan
     {
         assert(Index < ImageCount);
         return FrameBuffers[Index];
+    }
+
+    VkSemaphore FSwapchain::GetAcquireSemaphore() const 
+    { 
+        return FrameResources[FrameIndex% FrameResources.size()].AcquireSemaphore;
+    }
+    VkSemaphore FSwapchain::GetPresentSemaphore() const
+    {
+        return FrameResources[FrameIndex % FrameResources.size()].PresentSemaphore;
+    }
+
+    VkFence FSwapchain::GetFrameFence() const
+    {
+        return FrameResources[FrameIndex % FrameResources.size()].Fence;
     }
 
     uint32_t FSwapchain::GetFrameBufferIndex(IFrameBuffer* FrameBuffer) const
@@ -165,6 +195,11 @@ namespace Neko::RHI::Vulkan
         return 0;
     }
 
+    uint64_t FSwapchain::NextFrame()
+    {
+        return ++FrameIndex;
+    }
+
     ISwapchainRef FDevice::CreateSwapChain(const FSwapChainDesc &Desc)
     {
         auto SwapchainRef = RefCountPtr<FSwapchain>(new FSwapchain(Context));
@@ -175,16 +210,26 @@ namespace Neko::RHI::Vulkan
         return SwapchainRef;
     }
 
-    IFrameBufferRef FDevice::QueueWaitNextFrameBuffer(ISwapchain* Swapchain, IQueue* InQueue)
+    IFrameBufferRef FDevice::QueueWaitNextFrameBuffer(ISwapchain* InSwapchain, IQueue* InQueue)
     {
         auto& Queue = *reinterpret_cast<FQueue*>(InQueue);
+
+        auto Swapchain = reinterpret_cast<FSwapchain*>(InSwapchain);
+
+        auto FrameIndex = Swapchain->NextFrame();
         
-        auto SignalSemaphore = reinterpret_cast<FSwapchain*>(Swapchain)->GetSemaphore();
-        auto VkSwapchainPtr = reinterpret_cast<FSwapchain*>(Swapchain)->GetSwapchain();
+        auto AcquireSemaphore = Swapchain->GetAcquireSemaphore();
+        auto PresentSemaphore = Swapchain->GetPresentSemaphore();
+        auto FrameFence = Swapchain->GetFrameFence();
+        auto VkSwapchainPtr = Swapchain->GetSwapchain();
+
+        vkWaitForFences(Context.Device, 1, &FrameFence, VK_FALSE, UINT64_MAX);
+        vkResetFences(Context.Device, 1, &FrameFence);
 
         uint32_t ImageIndex = 0;
-        VK_CHECK_THROW(vkAcquireNextImageKHR(Context.Device, VkSwapchainPtr, UINT64_MAX, SignalSemaphore, nullptr, &ImageIndex), "Failed to acquire next image");
-        Queue.AddWaitSemaphore(SignalSemaphore, 0);
+        VK_CHECK_THROW(vkAcquireNextImageKHR(Context.Device, VkSwapchainPtr, UINT64_MAX, AcquireSemaphore, FrameFence, &ImageIndex), "Failed to acquire next image");
+        Queue.AddWaitSemaphore(AcquireSemaphore, 0);
+        Queue.AddSignalSemaphore(PresentSemaphore, 0);
         return Swapchain->GetFrameBuffer(ImageIndex);
     }
 
@@ -195,7 +240,7 @@ namespace Neko::RHI::Vulkan
         
         auto Swapchain = reinterpret_cast<FSwapchain*>(InSwapchain);
         auto VkSwapchainPtr = Swapchain->GetSwapchain();
-        auto WaitSemaphore = Queue.GetSemaphoreForSwapchain();
+        auto WaitSemaphore = Swapchain->GetPresentSemaphore();
 
         VkPresentInfoKHR PresentInfo = {};
         PresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

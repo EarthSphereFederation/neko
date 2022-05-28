@@ -103,7 +103,7 @@ int main(int, char **)
 
     auto GraphicQueue = Device->CreateQueue();
     // mainloop
-
+      
     while (!Window.ShouldClose())
     {
         OS::FWindow::DoEvents();
