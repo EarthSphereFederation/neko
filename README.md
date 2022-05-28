@@ -17,11 +17,12 @@ A light-weight renderer.
 
 ## 3rd Party Open Source Libraries
 
-- [ ] [assimp](https://github.com/assimp/assimp)
+- [x] [assimp](https://github.com/assimp/assimp)
 - [x] [dxc](https://github.com/microsoft/DirectXShaderCompiler)
 - [ ] [EASTL](https://github.com/electronicarts/EASTL)
 - [x] [glfw](https://github.com/glfw/glfw)
 - [x] [glm](https://github.com/g-truc/glm)
+- [x] [meshoptimizer](https://github.com/zeux/meshoptimizer)
 - [x] [mimalloc](https://github.com/microsoft/mimalloc)
 - [x] [SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)
 - [ ] [stb](https://github.com/nothings/stb)
