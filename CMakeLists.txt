@@ -20,8 +20,6 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 list(PREPEND CMAKE_MODULE_PATH "${project_root}/Cmake")
 include(CompilerSettings)
-include(External/assimp)
-include(External/meshoptimizer)
 include(External/mimalloc)
 include(External/glfw)
 include(External/HLSLCompiler)
@@ -30,6 +28,8 @@ if(NEKO_RHI_VULKAN)
 	include(External/spirv-cross)
 endif()
 include(External/ShaderReflection)
+include(External/assimp)
+include(External/meshoptimizer)
 
 #============= neko =============
 
