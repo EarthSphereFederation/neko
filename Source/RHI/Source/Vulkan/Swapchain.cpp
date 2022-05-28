@@ -28,6 +28,7 @@ namespace Neko::RHI::Vulkan
         {
             for (auto& FrameRes : FrameResources)
             {
+                vkWaitForFences(Context.Device, 1, &FrameRes.Fence, VK_FALSE, UINT64_MAX);
                 vkDestroyFence(Context.Device, FrameRes.Fence, Context.AllocationCallbacks);
                 vkDestroySemaphore(Context.Device, FrameRes.AcquireSemaphore, Context.AllocationCallbacks);
                 vkDestroySemaphore(Context.Device, FrameRes.PresentSemaphore, Context.AllocationCallbacks);
