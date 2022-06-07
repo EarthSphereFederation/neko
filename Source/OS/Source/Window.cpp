@@ -3,7 +3,7 @@
 #include <cassert>
 
 #ifdef NEKO_RHI_VULKAN
-#include <vulkan/vulkan.h>
+#include <volk.h> 
 #endif
 #include <GLFW/glfw3.h>
 

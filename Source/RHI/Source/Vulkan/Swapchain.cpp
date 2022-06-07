@@ -12,28 +12,9 @@ namespace Neko::RHI::Vulkan
     {
         if (Swapchain)
         {
-            for (uint32_t i = 0; i < ImageCount; ++i)
-            {
-                vkDestroyImageView(Context.Device, ImageViews[i], Context.AllocationCallbacks);
-            }
-
             ImageCount = 0;
-            auto Size = ImageViews.empty();
-            Size = Images.empty();
             vkDestroySwapchainKHR(Context.Device, Swapchain, Context.AllocationCallbacks);
             Swapchain = nullptr;
-        }
-
-        if (FrameResources.size() > 0)
-        {
-            for (auto& FrameRes : FrameResources)
-            {
-                vkWaitForFences(Context.Device, 1, &FrameRes.Fence, VK_FALSE, UINT64_MAX);
-                vkDestroyFence(Context.Device, FrameRes.Fence, Context.AllocationCallbacks);
-                vkDestroySemaphore(Context.Device, FrameRes.AcquireSemaphore, Context.AllocationCallbacks);
-                vkDestroySemaphore(Context.Device, FrameRes.PresentSemaphore, Context.AllocationCallbacks);
-            }
-            FrameResources.clear();
         }
 
         if (Surface)
@@ -50,6 +31,9 @@ namespace Neko::RHI::Vulkan
 
             VkSurfaceCapabilitiesKHR SurfaceCapabilities;
             vkGetPhysicalDeviceSurfaceCapabilitiesKHR(Context.PhysicalDevice, Surface, &SurfaceCapabilities);
+
+            VkExtent2D Size;
+            VkFormat Format;
 
             Size.width = SurfaceCapabilities.currentExtent.width;
             Size.height = SurfaceCapabilities.currentExtent.height;
@@ -113,12 +97,27 @@ namespace Neko::RHI::Vulkan
 
             VK_CHECK_THROW(vkCreateSwapchainKHR(Context.Device, &SwapchainInfo, Context.AllocationCallbacks, &Swapchain), "failed to create swapchain");
 
+            std::vector<VkImage> Images;
+
             vkGetSwapchainImagesKHR(Context.Device, Swapchain, &ImageCount, nullptr);
             Images.resize(ImageCount);
-            ImageViews.resize(ImageCount);
             vkGetSwapchainImagesKHR(Context.Device, Swapchain, &ImageCount, Images.data());
-
             for (uint32_t i = 0; i < ImageCount; ++i)
+            {
+                FTextureDesc Desc;
+                Desc.Width = Size.width;
+                Desc.Height = Size.height;
+                Desc.Depth = 1;
+                Desc.ArraySize = 1;
+                Desc.Depth = 1;
+                Desc.Format = ConvertFromVkFormat(Format);
+                Desc.MipNum = 1;
+                auto Texture = RefCountPtr<FTexture>(new FTexture(Context, Images[i],Desc));
+                Textures.push_back(Texture);
+            }
+            
+
+            /*for (uint32_t i = 0; i < ImageCount; ++i)
             {
                 VkImageViewCreateInfo ImageViewInfo = {};
                 ImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -138,67 +137,14 @@ namespace Neko::RHI::Vulkan
 
                 VK_CHECK_THROW(vkCreateImageView(Context.Device, &ImageViewInfo, Context.AllocationCallbacks, &ImageViews[i]), "failed to create iamge view");
             
-                auto FrameBuffer = RefCountPtr<FFrameBuffer>(new FFrameBuffer(Context, this, i));
-                FrameBuffer->Initalize();
-                FrameBuffers.push_back(FrameBuffer);
+                auto RT = RefCountPtr<FRenderTarget>(new FRenderTarget(Context, Images[i], ImageViews[i], Size, Format));
+                RenderTargets.push_back(RT);
 
-            }
-
-            FrameResources.resize(ImageCount);
-            for (uint32_t i = 0; i < ImageCount; ++i)
-            {
-                VkFenceCreateInfo FenceCreateInfo = {};
-                FenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-                FenceCreateInfo.flags = VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT;
-                vkCreateFence(Context.Device, &FenceCreateInfo, Context.AllocationCallbacks, &FrameResources[i].Fence);
-
-                VkSemaphoreCreateInfo SemaphoreCreateInfo = {};
-                SemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-                vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &FrameResources[i].AcquireSemaphore);
-                vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &FrameResources[i].PresentSemaphore);
-            }
+            }*/
 
             return true;
         }
         return false;
-    }
-
-    IFrameBufferRef FSwapchain::GetFrameBuffer(uint32_t Index)
-    {
-        assert(Index < ImageCount);
-        return FrameBuffers[Index];
-    }
-
-    VkSemaphore FSwapchain::GetAcquireSemaphore() const 
-    { 
-        return FrameResources[FrameIndex% FrameResources.size()].AcquireSemaphore;
-    }
-    VkSemaphore FSwapchain::GetPresentSemaphore() const
-    {
-        return FrameResources[FrameIndex % FrameResources.size()].PresentSemaphore;
-    }
-
-    VkFence FSwapchain::GetFrameFence() const
-    {
-        return FrameResources[FrameIndex % FrameResources.size()].Fence;
-    }
-
-    uint32_t FSwapchain::GetFrameBufferIndex(IFrameBuffer* FrameBuffer) const
-    {
-        for (uint32_t i = 0; i < FrameBuffers.size(); ++i)
-        {
-            if (FrameBuffers[i].GetPtr() == FrameBuffer)
-            {
-                return i;
-            }
-        }
-        assert(false);
-        return 0;
-    }
-
-    uint64_t FSwapchain::NextFrame()
-    {
-        return ++FrameIndex;
     }
 
     ISwapchainRef FDevice::CreateSwapChain(const FSwapChainDesc &Desc)
@@ -211,47 +157,46 @@ namespace Neko::RHI::Vulkan
         return SwapchainRef;
     }
 
-    IFrameBufferRef FDevice::QueueWaitNextFrameBuffer(ISwapchain* InSwapchain, IQueue* InQueue)
+    uint32_t FSwapchain::AcquireNext(ISemaphore* InSemaphore, IFence* InFence)
     {
-        auto& Queue = *reinterpret_cast<FQueue*>(InQueue);
+        auto Semaphore = reinterpret_cast<FSemaphore*>(InSemaphore);
+        auto Fence = reinterpret_cast<FFence*>(InFence);
 
-        auto Swapchain = reinterpret_cast<FSwapchain*>(InSwapchain);
-
-        auto FrameIndex = Swapchain->NextFrame();
-        
-        auto AcquireSemaphore = Swapchain->GetAcquireSemaphore();
-        auto PresentSemaphore = Swapchain->GetPresentSemaphore();
-        auto FrameFence = Swapchain->GetFrameFence();
-        auto VkSwapchainPtr = Swapchain->GetSwapchain();
-
-        vkWaitForFences(Context.Device, 1, &FrameFence, VK_FALSE, UINT64_MAX);
-        vkResetFences(Context.Device, 1, &FrameFence);
-
-        uint32_t ImageIndex = 0;
-        VK_CHECK_THROW(vkAcquireNextImageKHR(Context.Device, VkSwapchainPtr, UINT64_MAX, AcquireSemaphore, FrameFence, &ImageIndex), "Failed to acquire next image");
-        Queue.AddWaitSemaphore(AcquireSemaphore, 0);
-        Queue.AddSignalSemaphore(PresentSemaphore, 0);
-        return Swapchain->GetFrameBuffer(ImageIndex);
+        VK_CHECK_THROW(vkAcquireNextImageKHR(Context.Device, Swapchain, UINT64_MAX, Semaphore ? Semaphore->GetSemaphore() : nullptr, Fence ? Fence->GetFence() : nullptr, &ImageIndex), "Failed to acquire next image");
+        return ImageIndex;
     }
 
-    void FDevice::QueueWaitPresent(ISwapchain* InSwapchain, IFrameBuffer* FrameBuffer, IQueue* InQueue)
+    void FSwapchain::Present(const FPresentDesc& Desc)
     {
-       
-        auto& Queue = *reinterpret_cast<FQueue*>(InQueue);
-        
-        auto Swapchain = reinterpret_cast<FSwapchain*>(InSwapchain);
-        auto VkSwapchainPtr = Swapchain->GetSwapchain();
-        auto WaitSemaphore = Swapchain->GetPresentSemaphore();
+        assert(Desc.Queue != nullptr);
+
+        auto Queue = reinterpret_cast<FQueue*>(Desc.Queue);
+
+        std::vector<VkSemaphore> WaitSemaphores;
+        for (uint32_t i = 0; i < Desc.WaitSemaphoreArray.size(); ++i)
+        {
+            WaitSemaphores.push_back(reinterpret_cast<FSemaphore*>(Desc.WaitSemaphoreArray[i])->GetSemaphore());
+        }
 
         VkPresentInfoKHR PresentInfo = {};
         PresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-        PresentInfo.waitSemaphoreCount = 1;
-        PresentInfo.pWaitSemaphores = &WaitSemaphore;
-        VkSwapchainKHR SwapChains[] = { VkSwapchainPtr };
-        uint32_t ImageIndices[] = { Swapchain->GetFrameBufferIndex(FrameBuffer) };
+        PresentInfo.waitSemaphoreCount = (uint32_t)Desc.WaitSemaphoreArray.size();
+        PresentInfo.pWaitSemaphores = WaitSemaphores.data();
+        VkSwapchainKHR SwapChains[] = { Swapchain };
+        uint32_t ImageIndices[] = { Desc.PresentIndex };
         PresentInfo.swapchainCount = 1;
         PresentInfo.pSwapchains = SwapChains;
         PresentInfo.pImageIndices = ImageIndices;
-        VK_CHECK_THROW(auto result = vkQueuePresentKHR(Queue.GetQueue(), &PresentInfo), "Failed to present");
+        VK_CHECK_THROW(auto result = vkQueuePresentKHR(Queue->GetQueue(), &PresentInfo), "Failed to present");
+    }
+
+    uint32_t FSwapchain::GetTextureNum()
+    {
+        return ImageCount;
+    }
+
+    std::vector<ITextureRef>  FSwapchain::GetTextures()
+    {
+        return Textures;
     }
 }

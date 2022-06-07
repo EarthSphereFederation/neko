@@ -17,7 +17,7 @@ endif()
 # add neko target
 
 add_library(Neko STATIC ${SRC})
-
+ 
 # group sources
 
 foreach(_SRC IN ITEMS ${SRC})
@@ -46,5 +46,5 @@ target_include_directories(Neko PUBLIC MiniCore/Include)
 target_link_libraries(Neko PRIVATE glfw)
 target_link_libraries(Neko PUBLIC mimalloc-static)
 if(NEKO_RHI_VULKAN)
-	target_link_libraries(Neko PRIVATE Vulkan::Vulkan)
+	target_link_libraries(Neko PRIVATE volk) 
 endif()

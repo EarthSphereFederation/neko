@@ -18,19 +18,20 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 #============= external =============
 
-list(PREPEND CMAKE_MODULE_PATH "${project_root}/Cmake")
+list(PREPEND CMAKE_MODULE_PATH "${project_root}/Cmake") 
 include(CompilerSettings)
 include(External/mimalloc)
 include(External/glfw)
 include(External/HLSLCompiler)
 if(NEKO_RHI_VULKAN)
-	find_package(Vulkan REQUIRED)
+	#find_package(Vulkan REQUIRED)
+	include(External/volk)
 	include(External/spirv-cross)
 endif()
 include(External/ShaderReflection)
 include(External/assimp)
 include(External/meshoptimizer)
-
+ 
 #============= neko =============
 
 add_subdirectory(Source)

@@ -1,7 +1,7 @@
 #pragma once
 #include "RHI/RHI.h"
+#include "volk.h"
 #include "OS/Window.h"
-#include <vulkan/vulkan.h>
 #include <list>
 #include <iostream>
 #include <vector>
@@ -19,7 +19,23 @@ namespace Neko::RHI::Vulkan
 
 #define CAST(T,Ref) RefCountPtr<T>(reinterpret_cast<T*>(Ref.GetPtr()))
 
-	constexpr uint32_t MAX_VULKAN_QUEUE_COUNT = 3;
+	inline VkSemaphoreType ConvertToVkSemaphoreType(const ESemaphoreType& Type)
+	{
+		switch (Type)
+		{
+		case ESemaphoreType::Binary:
+		{
+			return VkSemaphoreType::VK_SEMAPHORE_TYPE_BINARY;
+		}
+		case ESemaphoreType::Timeline:
+		{
+			return VkSemaphoreType::VK_SEMAPHORE_TYPE_TIMELINE;
+		}
+		default:
+			CHECK(false);
+			return VkSemaphoreType::VK_SEMAPHORE_TYPE_BINARY;
+		}
+	}
 
 	inline VkShaderStageFlagBits ConvertToVkShaderStageFlags(const EShaderStage &stage)
 	{
@@ -334,7 +350,7 @@ namespace Neko::RHI::Vulkan
 		}
 	}
 
-	inline VkAttachmentStoreOp ConvertToVkVkAttachmentStoreOp(const EStoreOp& Op)
+	inline VkAttachmentStoreOp ConvertToVkAttachmentStoreOp(const EStoreOp& Op)
 	{
 		switch (Op)
 		{
@@ -345,6 +361,87 @@ namespace Neko::RHI::Vulkan
 		default:
 			CHECK(false);
 			return VkAttachmentStoreOp::VK_ATTACHMENT_STORE_OP_STORE;
+		}
+	}
+
+	inline VkImageViewType ConvertToVkImageViewType(const ETexture2DViewType& Type)
+	{
+		switch (Type)
+		{
+		case ETexture2DViewType::ShaderResource2D:
+		{
+			return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
+		}
+		default:
+			CHECK(false);
+			return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
+		}
+	}
+
+
+	inline VkAccessFlags ConvertToVkAccessFlags(const EResourceState& State)
+	{
+		switch (State)
+		{
+		case EResourceState::Undefined:
+		{
+			return VkAccessFlagBits::VK_ACCESS_NONE;
+		}
+		case EResourceState::RenderTarget:
+		{
+			return VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		}
+		case EResourceState::Present:
+		{
+			return VkAccessFlagBits::VK_ACCESS_MEMORY_READ_BIT;
+		}
+		default:
+			CHECK(false);
+			return VkAccessFlagBits::VK_ACCESS_NONE;
+		}
+	}
+
+	inline VkImageLayout ConvertToVkImageLayout(const EResourceState& State)
+	{
+		switch (State)
+		{
+		case EResourceState::Undefined:
+		{
+			return VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
+		}
+		case EResourceState::RenderTarget:
+		{
+			return VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		}
+		case EResourceState::Present:
+		{
+			return VkImageLayout::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		}
+		default:
+			CHECK(false);
+			return VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
+		}
+	}
+
+	inline VkPipelineStageFlags ConvertToVkPipelineStageFlags(const EResourceState& State)
+	{
+		switch (State)
+		{
+		case EResourceState::Undefined:
+		{
+			return VkPipelineStageFlagBits::VK_PIPELINE_STAGE_NONE;
+		}
+		case EResourceState::RenderTarget:
+		{
+			return VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		}
+		case EResourceState::Present:
+		{
+			return VkPipelineStageFlagBits::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+		}
+		default:
+			CHECK(false);
+			return VkPipelineStageFlagBits::VK_PIPELINE_STAGE_NONE;
 		}
 	}
 
@@ -361,6 +458,34 @@ namespace Neko::RHI::Vulkan
 		VkDeviceCreateInfo DeviceInfo = {};
 
 		~FContext();
+	};
+
+	class FSemaphore : public RefCounter<ISemaphore>
+	{
+	private:
+		const FContext& Context;
+		VkSemaphore Semaphore = nullptr;
+		float Counter = 0;
+	public:
+		FSemaphore(const FContext& ,const ESemaphoreType&);
+		~FSemaphore();
+		VkSemaphore GetSemaphore() const { return Semaphore; }
+		virtual void SetCounter(float Value) override { Counter = Value; };
+		virtual float GetCounter() override { return Counter; }
+	};
+
+	class FFence : public RefCounter<IFence>
+	{
+	private:
+		const FContext& Context;
+		VkFence Fence = nullptr;
+	public:
+		FFence(const FContext&,const EFenceFlag&);
+		~FFence();
+		VkFence GetFence() const { return Fence; }
+
+		virtual void Wait() override;
+		virtual void Reset() override;
 	};
 
 	class FShader final : public RefCounter<IShader>
@@ -380,74 +505,29 @@ namespace Neko::RHI::Vulkan
 		const VkShaderModule GetVkShaderModule() const { return ShaderModule; }
 	};
 
-	class FQueue;
-	class FReusableCmdPool
-	{
-	private:
-		const FContext& Context;
-		VkCommandPool CmdPool = nullptr;
-	public:
-		uint64_t SubmitID = 0;
-
-		std::vector<VkCommandBuffer> CmdBuffers;
-
-		FReusableCmdPool(const FContext&, uint32_t FamliyIndex);
-		~FReusableCmdPool();
-		
-		VkCommandPool GetCmdPool() const { return CmdPool; }
-
-		VkCommandBuffer AllocCmdBuffer();
-
-		void Reset();
-	};
-
 	class FQueue final : public RefCounter<IQueue>
 	{
 	private:
 		const FContext& Context;
 		uint32_t FamilyIndex;
 		ECmdQueueType Type;
-		//VkQueueFamilyProperties2 properties;
 
 		VkQueue Queue = nullptr;
-		VkSemaphore QueueSemaphore = nullptr;
-
-		std::list<std::shared_ptr<FReusableCmdPool>> UsedCmdPools;
-		std::list<std::shared_ptr<FReusableCmdPool>> FreeCmdPools;
-
-		uint64_t RecordingID = 0;
-		uint64_t SubmitID = 0;
-		uint64_t FinishedID = 0;
-
-		std::vector<VkSemaphore> QueueWaitSemaphores;
-		std::vector<uint64_t> QueueWaitSemaphoreValues;
-		std::vector<VkSemaphore> QueueSignalSemaphores;
-		std::vector<uint64_t> QueueSignalSemaphoreValues;
-
-		std::mutex Mutex;
 	public:
 		FQueue(const FContext&, uint32_t queueFamliyIndex,uint32_t QueueIndex, ECmdQueueType cmdType);
 		~FQueue();
 		ECmdQueueType GetCmdQueueType() const { return Type; }
 		uint32_t GetFamilyIndex() const { return FamilyIndex; }
-		
-		bool IsTypeFit(ECmdQueueType InType) { return (uint8_t)(InType & Type) > 0; }
+		bool IsMatch(ECmdQueueType InType) { return (uint8_t)(InType & Type) > 0; }
+		VkQueue GetQueue() { return Queue; }
 
-		std::shared_ptr<FReusableCmdPool> GetOrCreateReusableCmdPool();
-		std::shared_ptr<FReusableCmdPool> CreateReusableCmdPool();
 		
-		VkQueue GetQueue() const { return Queue; }
-		uint64_t Submit(ICmdList**, uint32_t);
-		uint64_t UpdateFinishedID();
-
-		void AddWaitSemaphore(VkSemaphore InWait, uint64_t ID) { QueueWaitSemaphores.push_back(InWait); QueueWaitSemaphoreValues.push_back(ID); }
-		void AddSignalSemaphore(VkSemaphore InSignal, uint64_t ID) { QueueSignalSemaphores.push_back(InSignal); QueueSignalSemaphoreValues.push_back(ID); }
 		
-		void GC();
+		virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum, const FExcuteDesc& Desc) override;
+		virtual void ExcuteCmdList(ICmdList* CmdList, const FExcuteDesc& Desc) override;
 
+		[[nodiscard]] virtual std::vector<ICmdPoolRef> CreateCmdPools(uint32_t) override;
 		[[nodiscard]] virtual ICmdPoolRef CreateCmdPool() override;
-		virtual void ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum) override;
-		virtual void ExcuteCmdList(ICmdList* CmdList) override;
 	};
 
 	class FGraphicPipeline final : public RefCounter<IGraphicPipeline>
@@ -464,22 +544,26 @@ namespace Neko::RHI::Vulkan
 
 		VkPipeline GetPipeline() const { return Pipeline; }
 
-		bool Initalize(IFrameBuffer* const);
+		bool Initalize();
 	};
 
 	class FCmdPool final : public RefCounter<ICmdPool>
 	{
 	private:
+		std::mutex Mutex;
 		const FContext& Context;
 		FQueue& Queue;
-		std::shared_ptr<FReusableCmdPool> ReusableCmdPool;
+		VkCommandPool CmdPool = nullptr;
+		std::vector<ICmdListRef> CmdLists;
 	public:
 		FCmdPool(const FContext& Context,FQueue& InQueue);
 		~FCmdPool();
 
-		std::shared_ptr<FReusableCmdPool> GetReusableCmdPool() const { return ReusableCmdPool; }
+		VkCommandPool GetCmdPool() { return CmdPool; }
+
 
 		[[nodiscard]] virtual ICmdListRef CreateCmdList() override;
+		virtual void Free() override;
 		virtual ECmdQueueType GetCmdQueueType() override { return Queue.GetCmdQueueType(); }
 	};
 
@@ -489,9 +573,6 @@ namespace Neko::RHI::Vulkan
 		FCmdPool* CmdPool;
 		//class FDevice* Device;
 		VkCommandBuffer CmdBuffer = nullptr;
-
-		RefCountPtr<IFrameBuffer> ActiveFrameBuffer;
-
 	public:
 		FCmdList(const FContext&, FCmdPool*);
 		~FCmdList();
@@ -500,20 +581,22 @@ namespace Neko::RHI::Vulkan
 		
 		virtual void BeginCmd() override;
 		virtual void EndCmd() override;
+		virtual void BeginRenderPass(const FRenderPassDesc&) override;
+		virtual void EndRenderPass() override;
+
 		virtual void SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
 		virtual void SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height) override;
 		virtual void SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
 		virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset) override;
 		
-		virtual void BindFrameBuffer(IFrameBuffer*) override;
 		virtual void BindGraphicPipeline(IGraphicPipeline*) override;
+		virtual void ResourceBarrier(const FTextureTransitionDesc&) override;
 	};
 
 	class FBindingLayout final : public RefCounter<IBindingLayout>
 	{
 		VkDescriptorSetLayout DescriptorSetLayout = nullptr;
 		const FContext& Context;
-
 	public:
 		FBindingLayout(const FContext&);
 		~FBindingLayout();
@@ -522,70 +605,68 @@ namespace Neko::RHI::Vulkan
 		VkDescriptorSetLayout GetDescriptorSetLayout() const { return DescriptorSetLayout; }
 	};
 	
+	class FRenderTarget final : public RefCounter<IRenderTarget>
+	{
+	private:
+		const FContext& Context;
+		FRenderTargetDesc Desc;
+	public:
+		FRenderTarget(const FContext&, const FRenderTargetDesc&);
+		~FRenderTarget();
+		virtual const FRenderTargetDesc& GetDesc() override { return Desc; };
+	};
+
+	class FTexture final : public RefCounter <ITexture>
+	{
+	private:
+		const FContext& Context;
+		VkImage Image = nullptr;
+		FTextureDesc Desc;
+		bool bAutoRelease = false;
+	public:
+		FTexture(const FContext&, VkImage, const FTextureDesc&,bool InbAutoRelease = false);
+
+		VkImage GetImage() const { return Image; }
+	public:
+		virtual const FTextureDesc& GetDesc() override { return Desc; };
+	};
+
+	class FTexture2DView final : public RefCounter<ITexture2DView>
+	{
+	private:
+		const FContext& Context;
+		VkImageView ImageView = nullptr;
+		FTexture2DViewDesc Desc;
+	public:
+		FTexture2DView(const FContext&, const FTexture2DViewDesc&);
+		VkImageView GetImageView() const { return ImageView; }
+	public:
+		virtual ITextureRef GetTexture() override;
+		virtual const FTexture2DViewDesc& GetDesc() override;
+	};
+
 	class FSwapchain final : public RefCounter<ISwapchain>
 	{
 	private:
 		VkSwapchainKHR Swapchain = nullptr;
 		VkSurfaceKHR Surface = nullptr;
 		uint32_t ImageCount = 0;
-		std::vector<VkImage> Images;
-		std::vector<VkImageView> ImageViews;
+		uint32_t ImageIndex = 0;
 		const FContext& Context;
-		VkFormat Format = VkFormat::VK_FORMAT_UNDEFINED;
-		VkExtent2D Size = VkExtent2D();
-		std::vector<IFrameBufferRef> FrameBuffers;
-
-
-		uint64_t FrameIndex = 0;
-		struct FFrameResource
-		{
-			VkFence Fence;
-			VkSemaphore AcquireSemaphore;
-			VkSemaphore PresentSemaphore;
-		};
-		std::vector<FFrameResource> FrameResources;
+		std::vector<ITextureRef> Textures;
 	public:
 		FSwapchain(const FContext&);
 		~FSwapchain();
 		bool Initalize(const FSwapChainDesc &Desc);
-
-		VkFormat GetFormat() const { return Format; }
-		VkImage GetImage(uint32_t Index) const { CHECK(Index < ImageCount); return Images[Index]; }
-		VkImageView GetImageView(uint32_t Index) const { CHECK(Index < ImageCount); return ImageViews[Index]; }
-		VkExtent2D GetSize() const { return Size; }
 		VkSwapchainKHR GetSwapchain() const { return Swapchain; }
-		VkSemaphore GetAcquireSemaphore() const;
-		VkSemaphore GetPresentSemaphore() const;
-
-		VkFence GetFrameFence() const;
-
-		uint32_t GetFrameBufferIndex(IFrameBuffer*) const;
-		uint64_t NextFrame();
-
-		virtual IFrameBufferRef GetFrameBuffer(uint32_t) override;
+	public:
+		virtual uint32_t AcquireNext(ISemaphore*, IFence*) override;
+		virtual void Present(const FPresentDesc&) override;
+		virtual uint32_t GetTextureNum() override;
+		virtual std::vector<ITextureRef> GetTextures() override;
 	};
 
-	class FFrameBuffer final : public RefCounter<IFrameBuffer>
-	{
-	private:
-		const FContext& Context;
-		VkRenderPass RenderPass = nullptr;
-		VkFramebuffer FrameBuffer = nullptr;
-		FFrameBufferInfo Info;
-		VkExtent2D Size;
-	public:
-		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkImage, Image, MAX_RENDER_TARGET_COUNT);
-		NEKO_PARAM_ARRAY_PRI_PARAM_PUB_FUNC(VkImageView, ImageView, MAX_RENDER_TARGET_COUNT);
-	public:
-		FFrameBuffer(const FContext&,const RefCountPtr<FSwapchain>&,uint32_t);
-		~FFrameBuffer();
-		bool Initalize();
-		VkRenderPass GetRenderPass() const { return RenderPass; }
-		VkFramebuffer GetFrameBuffer() const { return FrameBuffer; }
-		VkExtent2D GetSize() const { return Size; }
-
-		virtual const FFrameBufferInfo& GetInfo() override { return Info; };
-	};
+	
 
 	class FDevice final : public RefCounter<IDevice>
 	{
@@ -598,19 +679,18 @@ namespace Neko::RHI::Vulkan
 		~FDevice() {}
 		bool Initalize(const FDeviceDesc &desc);
 
+		[[nodiscard]] virtual ISemaphoreRef CreateSemaphore(const ESemaphoreType&) override;
+		[[nodiscard]] virtual std::vector<ISemaphoreRef> CreateSemaphores(const ESemaphoreType&,uint32_t) override;
+		[[nodiscard]] virtual IFenceRef CreateFence(const EFenceFlag&) override;
+		[[nodiscard]] virtual std::vector<IFenceRef> CreateFences(const EFenceFlag&, uint32_t) override;
 		[[nodiscard]] virtual IQueueRef CreateQueue(const ECmdQueueType& CmdQueueType = ECmdQueueType::Graphic) override;
-
 		[[nodiscard]] virtual IShaderRef CreateShader(const FShaderDesc &) override;
-
-		[[nodiscard]] virtual IGraphicPipelineRef CreateGraphicPipeline(const FGraphicPipelineDesc &, IFrameBuffer* const) override;
-
+		[[nodiscard]] virtual IGraphicPipelineRef CreateGraphicPipeline(const FGraphicPipelineDesc &) override;
 		[[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) override;
-
 		[[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc &desc) override;
-		[[nodiscard]] virtual IFrameBufferRef QueueWaitNextFrameBuffer(ISwapchain*, IQueue*) override;
-		[[nodiscard]] virtual void QueueWaitPresent(ISwapchain*, IFrameBuffer* , IQueue*) override;
-
-		virtual void GC() override;
+		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(const FTexture2DViewDesc&) override;
+		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture* ,const ETexture2DViewType&) override;
+		[[nodiscard]] virtual IRenderTargetRef CreateRenderTarget(const FRenderTargetDesc&) override;
 		
 		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;
 

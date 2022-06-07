@@ -41,6 +41,7 @@ namespace Neko::RHI
 
             VK_CHECK_THROW(vkCreateInstance(&InstanceCreateInfo, nullptr, &Context.Instance), "failed to create instance");
 
+            volkLoadInstance(Context.Instance);
 
             // enumerate layer Properties
             uint32_t LayerPropertiesCount = 0;
@@ -58,12 +59,16 @@ namespace Neko::RHI
             
 
             VkPhysicalDeviceFeatures Features = {};
+
+            VkPhysicalDeviceVulkan13Features  Vulkan13Features = {};
+            Vulkan13Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
+
             VkPhysicalDeviceVulkan12Features  Vulkan12Features = {};
             Vulkan12Features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
 
             VkPhysicalDeviceFeatures2 Features2 = {};
             Features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-            Features2.pNext = &Vulkan12Features;
+            
            
             // select Physicla device
             bool bFound = false;
@@ -79,11 +84,15 @@ namespace Neko::RHI
 
                 //vkGetPhysicalDeviceFeatures2(PhysicalDevice, &Vulkan12Features);
                 vkGetPhysicalDeviceFeatures(PhysicalDevice, &Features);
-                vkGetPhysicalDeviceFeatures2(PhysicalDevice, &Features2);
 
+                Vulkan12Features.pNext = &Vulkan13Features;
+                Features2.pNext = &Vulkan12Features;
+                vkGetPhysicalDeviceFeatures2(PhysicalDevice, &Features2);
+                
                 // required features
                 bFound = true;
                 bFound = bFound && Vulkan12Features.timelineSemaphore;
+                bFound = bFound && Vulkan13Features.dynamicRendering;
                 if (bFound)
                 {
                     Context.PhysicalDevice = PhysicalDevice;
@@ -138,6 +147,7 @@ namespace Neko::RHI
             // required
             {
                 Extensions.push_back(VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
+                Extensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
             }
             if (desc.Features.Swapchain)
             {
@@ -190,17 +200,6 @@ namespace Neko::RHI
             return false;
         }
 
-        void FDevice::GC()
-        {
-            for (auto& Queue : UsedQueues)
-            {
-                if (Queue)
-                {
-                    Queue->GC();
-                }
-            }
-        }
-
         void FDevice::WaitIdle()
         {
             vkDeviceWaitIdle(Context.Device);
@@ -212,7 +211,18 @@ namespace Neko::RHI
             return Ret;
         }
     }
-    
+
+    bool GRHIInitalize = false;
+
+    void RHIInit()
+    {
+        if (!GRHIInitalize)
+        {
+            VK_CHECK_THROW(volkInitialize(), "Failed to init volk");
+            GRHIInitalize = true;
+        }
+    }
+ 
     IDeviceRef CreateDevice(const FDeviceDesc &desc)
     {
         auto DeviceRef = RefCountPtr<Vulkan::FDevice>(new Vulkan::FDevice());

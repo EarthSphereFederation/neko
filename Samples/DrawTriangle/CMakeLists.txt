@@ -4,7 +4,6 @@ if(${NEKO_SHADER_DEV})
 endif()
 add_executable(NekoDrawTriangle main.cpp)
 target_link_libraries(NekoDrawTriangle PRIVATE
-    Vulkan::Vulkan
     Neko
     glfw
     HLSLCompiler)

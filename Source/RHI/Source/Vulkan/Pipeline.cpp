@@ -21,10 +21,10 @@ namespace Neko::RHI::Vulkan
 		}
 	}
 
-	bool FGraphicPipeline::Initalize(IFrameBuffer* const FrameBuffer)
+	bool FGraphicPipeline::Initalize()
 	{
 
-		uint32_t RTCount = (uint32_t)FrameBuffer->GetInfo().FormatArray.size();
+		uint32_t ColorRTCount = (uint32_t)Desc.ColorRenderTargetDescArray.size();
 		static_vector<VkPipelineShaderStageCreateInfo, MAX_SHADER_STAGE_COUNT> ShaderStages;
 
 		static_vector<IShaderRef, MAX_SHADER_STAGE_COUNT> Shaders;
@@ -78,20 +78,6 @@ namespace Neko::RHI::Vulkan
 		InputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 		InputAssembly.topology = ConvertToVkPrimitiveTopology(Desc.PrimitiveTopology);
 		InputAssembly.primitiveRestartEnable = VK_FALSE;
-
-		/*VkViewport Viewport = {};
-		Viewport.x = 0;
-		Viewport.y = 0;
-		Viewport.width = 512;
-		Viewport.height = 512;
-		Viewport.minDepth = 0.0f;
-		Viewport.maxDepth = 1.0f;
-
-		VkRect2D Scissor = {};
-		Scissor.offset.x = 0;
-		Scissor.offset.y = 0;
-		Scissor.extent.height = 512;
-		Scissor.extent.width = 128;*/
 
 		VkPipelineViewportStateCreateInfo ViewportState = {};
 		ViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -156,7 +142,7 @@ namespace Neko::RHI::Vulkan
 
 		static_vector<VkPipelineColorBlendAttachmentState, MAX_RENDER_TARGET_COUNT> ColorBlendAttachmentStates;
 
-		for (uint32_t i = 0; i < RTCount; ++i)
+		for (uint32_t i = 0; i < ColorRTCount; ++i)
 		{
 			auto rt = Desc.BlendState.renderTargets[i];
 			VkPipelineColorBlendAttachmentState ColorBlendAttachment = {};
@@ -211,8 +197,21 @@ namespace Neko::RHI::Vulkan
 		DynamicStateCreateInfo.dynamicStateCount = 2;
 		DynamicStateCreateInfo.pDynamicStates = DynamicStates;
 
+		static_vector<VkFormat, MAX_RENDER_TARGET_COUNT> ColorRTFormats;
+		for (uint32_t i = 0; i < ColorRTCount; ++i)
+		{
+			ColorRTFormats.push_back(ConvertToVkFormat(Desc.ColorRenderTargetDescArray[i].Texture2DView->GetDesc().Format));
+		}
+
+		VkPipelineRenderingCreateInfoKHR PipelineRenderingCreateInfo = {};
+		PipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
+		PipelineRenderingCreateInfo.colorAttachmentCount = ColorRTCount;
+		PipelineRenderingCreateInfo.pColorAttachmentFormats = ColorRTFormats.data();
+		
+
 		VkGraphicsPipelineCreateInfo PipelineInfo = {};
 		PipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		PipelineInfo.pNext = &PipelineRenderingCreateInfo;
 		PipelineInfo.stageCount = (uint32_t)ShaderStages.size();
 		PipelineInfo.pStages = ShaderStages.data();
 		PipelineInfo.pVertexInputState = &VertexInputInfo;
@@ -224,7 +223,7 @@ namespace Neko::RHI::Vulkan
 		PipelineInfo.pColorBlendState = &ColorBlending;
 		PipelineInfo.pDynamicState = &DynamicStateCreateInfo;
 		PipelineInfo.layout = PipelineLayout;
-		PipelineInfo.renderPass = reinterpret_cast<FFrameBuffer*>(FrameBuffer)->GetRenderPass();
+		PipelineInfo.renderPass = nullptr; // we use dynamic rendering
 		PipelineInfo.subpass = 0;
 		PipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
 		PipelineInfo.basePipelineIndex = -1; 
@@ -234,11 +233,10 @@ namespace Neko::RHI::Vulkan
 		return true;
 	}
 
-	IGraphicPipelineRef FDevice::CreateGraphicPipeline(const FGraphicPipelineDesc &pipelineDesc, IFrameBuffer* const FrameBuffer)
+	IGraphicPipelineRef FDevice::CreateGraphicPipeline(const FGraphicPipelineDesc &pipelineDesc)
 	{
-		assert(FrameBuffer != nullptr);
 		auto Pipeline = RefCountPtr<FGraphicPipeline>(new FGraphicPipeline(Context, pipelineDesc));
-		if (!Pipeline->Initalize(FrameBuffer))
+		if (!Pipeline->Initalize())
 		{
 			Pipeline = nullptr;
 		}

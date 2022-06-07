@@ -1,8 +1,7 @@
-#include "OS/Window.h"
 #include "RHI/RHI.h"
+#include "OS/Window.h"
 #include "HLSLCompiler/Compiler.h"
 #include "HLSLCompiler/SystemUtils.h"
-#include <vulkan/vulkan.h>
 #include <GLFW/glfw3.h>
 #include <fstream>
 #include <vector>
@@ -11,24 +10,10 @@
 
 using namespace Neko;
 
-std::vector<char> ReadBinaryFile(const std::string &path)
-{
-    std::vector<char> buffer;
-    std::ifstream fileStream(path, std::ios::binary | std::ios::ate);
-    if (!fileStream.is_open())
-    {
-        throw std::runtime_error("failed to open file");
-    }
-
-    uint32_t fileSize = fileStream.tellg();
-    buffer.resize(fileSize);
-    fileStream.seekg(0);
-    fileStream.read(buffer.data(), fileSize);
-    return buffer;
-}
-
 int main(int, char **)
 {
+    RHI::RHIInit();
+
     uint32_t SurfaceExtensionCount;
     const char **SurfaceExtensionNames = OS::FWindow::GetRequiredVulkanInstanceExtensions(&SurfaceExtensionCount);
 
@@ -56,8 +41,19 @@ int main(int, char **)
         .SetVSync(true).SetWindow(&Window);
 
     auto Swapchain = Device->CreateSwapChain(SwapchainDesc);
+    auto SwapchainTextures = Swapchain->GetTextures();
+    std::vector<RHI::ITexture2DViewRef> SwapchainTextureViews;
+    std::vector<RHI::IRenderTargetRef> SwapchainRTs;
+    for (auto& Texture : SwapchainTextures)
+    {
+        auto View = Device->CreateTexture2DView(Texture, RHI::ETexture2DViewType::ShaderResource2D);
+        SwapchainTextureViews.push_back(View);
+        
+        auto RTDesc = RHI::FRenderTargetDesc().SetTexture2DView(View);
+        SwapchainRTs.push_back(Device->CreateRenderTarget(RTDesc));
+    }
 
-    auto FrameBufferForPipeline = Swapchain->GetFrameBuffer(0);
+    auto TextureCount = Swapchain->GetTextureNum();
 
 #if NEKO_SHADER_DEV
     std::string AssetPath = std::filesystem::exists(ASSETS_PATH) ? ASSETS_PATH : GetExecutableDir();
@@ -97,13 +93,23 @@ int main(int, char **)
     auto GraphicPipelineDesc = RHI::FGraphicPipelineDesc()
         .SetVertexShader(VS)
         .SetPixelShader(PS)
-        .SetRasterState(RasterState);
+        .SetRasterState(RasterState)
+        .AddColorRenderTargetDesc(SwapchainRTs[0]->GetDesc());
 
-    auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc, FrameBufferForPipeline);
+    auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc);
 
     auto GraphicQueue = Device->CreateQueue();
+
+    auto CmdPools = GraphicQueue->CreateCmdPools(TextureCount);
+
+    auto SubmissionFences = Device->CreateFences(RHI::EFenceFlag::Signal, TextureCount);
+    auto AcquireSamephores = Device->CreateSemaphores(RHI::ESemaphoreType::Binary, TextureCount);
+
+    auto ExcuteSamephores = Device->CreateSemaphores(RHI::ESemaphoreType::Binary, TextureCount);
+
     // mainloop
       
+    uint32_t FrameNumber = 0;
     while (!Window.ShouldClose())
     {
         OS::FWindow::DoEvents();
@@ -112,28 +118,52 @@ int main(int, char **)
             Window.SetCloseFlag(true);
         }
 
-        auto FrameBuffer = Device->QueueWaitNextFrameBuffer(Swapchain, GraphicQueue);
+        uint32_t SwapchainTextureIndex = FrameNumber % TextureCount;
+        uint32_t PreSwapchainTextureIndex = (FrameNumber - 1) % TextureCount;
 
-        auto CmdPool = GraphicQueue->CreateCmdPool();
-        
-        auto CmdList = CmdPool->CreateCmdList();
+        SubmissionFences[SwapchainTextureIndex]->Wait();
+        SubmissionFences[SwapchainTextureIndex]->Reset();
+
+        auto ImageIdex = Swapchain->AcquireNext(AcquireSamephores[SwapchainTextureIndex],nullptr);
+
+        CmdPools[SwapchainTextureIndex]->Free();
+        auto CmdList = CmdPools[SwapchainTextureIndex]->CreateCmdList();
+       
+       
         CmdList->BeginCmd();
-
-        CmdList->BindFrameBuffer(FrameBuffer);
-
+        
+        auto Barrier_U2R = RHI::FTextureTransitionDesc()
+            .SetTexture(SwapchainTextures[SwapchainTextureIndex])
+            .SetSrcState(RHI::EResourceState::Undefined)
+            .SetDestState(RHI::EResourceState::RenderTarget);
+        CmdList->ResourceBarrier(Barrier_U2R);
+        
+        auto RenderPassDesc = RHI::FRenderPassDesc().AddColorRenderTarget(SwapchainRTs[SwapchainTextureIndex]);
+        CmdList->BeginRenderPass(RenderPassDesc);
         CmdList->BindGraphicPipeline(GraphicPipeline);
-
         CmdList->SetViewportNoScissor(0,512,0,512);
-
         CmdList->Draw(3, 0, 1, 0);
-
+        CmdList->EndRenderPass();
+        
+        auto Barrier_R2P = RHI::FTextureTransitionDesc()
+            .SetTexture(SwapchainTextures[SwapchainTextureIndex])
+            .SetSrcState(RHI::EResourceState::RenderTarget)
+            .SetDestState(RHI::EResourceState::Present);
+        CmdList->ResourceBarrier(Barrier_R2P);
+        
         CmdList->EndCmd();
+        
+        auto ExcuteDesc = RHI::FExcuteDesc().AddSignalSemaphore(ExcuteSamephores[SwapchainTextureIndex]).SetFence(SubmissionFences[SwapchainTextureIndex]);
+        GraphicQueue->ExcuteCmdList(CmdList, ExcuteDesc);
 
-        GraphicQueue->ExcuteCmdList(CmdList);
+        auto PresentDesc = RHI::FPresentDesc()
+            .AddWaitSemaphore(ExcuteSamephores[SwapchainTextureIndex])
+            .SetQueue(GraphicQueue)
+            .SetPresentIndex(ImageIdex);
+        Swapchain->Present(PresentDesc);
 
-        Device->QueueWaitPresent(Swapchain, FrameBuffer,GraphicQueue);
-
-        Device->GC();
+        
+        FrameNumber++;
     }
     Device->WaitIdle();
 

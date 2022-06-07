@@ -3,175 +3,45 @@
 #include <map>
 #include <vector>
 namespace Neko::RHI::Vulkan
-{ 
+{  
     FQueue::FQueue(const FContext &Ctx, uint32_t InQueueFamliyIndex, uint32_t QueueIndex, ECmdQueueType InCmdType) : Context(Ctx),FamilyIndex(InQueueFamliyIndex), Type(InCmdType)
     { 
         vkGetDeviceQueue(Context.Device, InQueueFamliyIndex, QueueIndex, &Queue);
-        {
-            VkSemaphoreTypeCreateInfo SemaphoreTypeCreateInfo = {};
-            SemaphoreTypeCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO;
-            SemaphoreTypeCreateInfo.initialValue = 0;
-            SemaphoreTypeCreateInfo.semaphoreType = VkSemaphoreType::VK_SEMAPHORE_TYPE_TIMELINE;
-
-            VkSemaphoreCreateInfo SemaphoreCreateInfo = {};
-            SemaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-            SemaphoreCreateInfo.pNext = &SemaphoreTypeCreateInfo;
-
-            vkCreateSemaphore(Context.Device, &SemaphoreCreateInfo, Context.AllocationCallbacks, &QueueSemaphore);
-        }
     }
 
     FQueue::~FQueue()
     {
-        if (QueueSemaphore)
-        {
-            vkDestroySemaphore(Context.Device, QueueSemaphore, Context.AllocationCallbacks);
-            QueueSemaphore = nullptr;
-        }
     }
 
-    uint64_t FQueue::UpdateFinishedID()
+    std::vector<ICmdPoolRef> FQueue::CreateCmdPools(uint32_t Num)
     {
-        uint64_t _FinishedID;
-        vkGetSemaphoreCounterValue(Context.Device, QueueSemaphore, &_FinishedID);
-        FinishedID = _FinishedID;
-        return FinishedID;
-    }
-
-    void FQueue::GC()
-    {
-        auto _FinishedID = UpdateFinishedID();
+        std::vector<ICmdPoolRef> CmdPools;
+        CmdPools.reserve(Num);
         
-        auto TmpUsedCmdPools = std::move(UsedCmdPools);
-        for (auto& CmdPool : TmpUsedCmdPools)
+        for (uint32_t i = 0; i < Num; ++i)
         {
-            if (CmdPool->SubmitID <= _FinishedID)
-            {
-                CmdPool->Reset();
-                FreeCmdPools.push_back(CmdPool);
-            }
-            else
-            {
-                UsedCmdPools.push_back(CmdPool);
-            }
-        }
-    }
-
-    std::shared_ptr<FReusableCmdPool> FQueue::CreateReusableCmdPool()
-    { 
-        auto CmdPool = std::make_shared<FReusableCmdPool>(Context, GetFamilyIndex());
-        return CmdPool;
-    }
-
-    std::shared_ptr<FReusableCmdPool> FQueue::GetOrCreateReusableCmdPool()
-    {
-        std::lock_guard Lock(Mutex);
-
-        std::shared_ptr<FReusableCmdPool> CmdPool;
-        if (FreeCmdPools.size() > 0)
-        {
-            CmdPool = FreeCmdPools.front();
-            FreeCmdPools.pop_front();
-        }
-        else
-        {
-            CmdPool = CreateReusableCmdPool();
+            CmdPools.push_back(CreateCmdPool());
         }
 
-        UsedCmdPools.push_back(CmdPool);
-
-        return CmdPool;
+        return CmdPools;
     }
 
     ICmdPoolRef FQueue::CreateCmdPool()
     {
-        return new FCmdPool(Context,*this);
+        return new FCmdPool(Context, *this);
     }
-
-    uint64_t FQueue::Submit(ICmdList** CmdLists, uint32_t CmdListNum)
-    {
-        assert(CmdListNum >= 0);
-
-        SubmitID++;
-
-        std::vector<VkPipelineStageFlags> WaitDstStageMasks;
-        WaitDstStageMasks.reserve(QueueWaitSemaphores.size());
-        for (uint32_t i = 0; i < QueueWaitSemaphores.size(); ++i)
-        {
-            WaitDstStageMasks.push_back(VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
-        }
-
-        std::vector<VkCommandBuffer> CmdBufs;
-        CmdBufs.reserve(CmdListNum);
-        for (uint32_t i = 0; i < CmdListNum; ++i)
-        {
-            if (CmdLists[i])
-            {
-                auto CmdBuf = reinterpret_cast<FCmdList*>(CmdLists[i])->GetCmdBuffer();
-                CmdBufs.push_back(CmdBuf);
-            }
-        }
-
-        std::vector<VkSemaphore> SignalSemaphores;
-        std::vector<uint64_t> SignalSemaphoreValues;
-        
-        SignalSemaphores.push_back(QueueSemaphore);
-        SignalSemaphoreValues.push_back(SubmitID);
-
-        for (uint32_t i=0;i< QueueSignalSemaphores.size();++i)
-        {
-            SignalSemaphores.push_back(QueueSignalSemaphores[i]);
-            SignalSemaphoreValues.push_back(QueueSignalSemaphoreValues[i]);
-        }
-
-        std::vector<VkSemaphore> WaitSemaphores;
-        std::vector<uint64_t> WaitSemaphoreValues;
-
-        for (uint32_t i = 0; i < QueueWaitSemaphores.size(); ++i)
-        {
-            WaitSemaphores.push_back(QueueWaitSemaphores[i]);
-            WaitSemaphoreValues.push_back(QueueWaitSemaphoreValues[i]);
-        }
-
-        VkTimelineSemaphoreSubmitInfo TimelineSemaphoreSubmitInfo = {};
-        TimelineSemaphoreSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
-        TimelineSemaphoreSubmitInfo.signalSemaphoreValueCount = (uint32_t)SignalSemaphoreValues.size();
-        TimelineSemaphoreSubmitInfo.pSignalSemaphoreValues = SignalSemaphoreValues.data();
-        TimelineSemaphoreSubmitInfo.waitSemaphoreValueCount = (uint32_t)WaitSemaphoreValues.size();
-        TimelineSemaphoreSubmitInfo.pWaitSemaphoreValues = WaitSemaphoreValues.data();
-
-        VkSubmitInfo SubmitInfo = {};
-        SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-        SubmitInfo.pNext = &TimelineSemaphoreSubmitInfo;
-        SubmitInfo.signalSemaphoreCount = (uint32_t)SignalSemaphores.size();
-        SubmitInfo.pSignalSemaphores = SignalSemaphores.data();
-        SubmitInfo.waitSemaphoreCount = (uint32_t)WaitSemaphores.size();
-        SubmitInfo.pWaitSemaphores = WaitSemaphores.data();
-        SubmitInfo.pWaitDstStageMask = WaitDstStageMasks.data();
-        SubmitInfo.commandBufferCount = (uint32_t)CmdBufs.size();
-        SubmitInfo.pCommandBuffers = CmdBufs.data();
-
-        vkQueueSubmit(Queue, 1, &SubmitInfo, nullptr);
-
-        QueueWaitSemaphores.clear();
-        QueueWaitSemaphoreValues.clear();
-        QueueSignalSemaphores.clear();
-        QueueSignalSemaphoreValues.clear();
-
-        return SubmitID;
-    }
-
-    FReusableCmdPool::FReusableCmdPool(const FContext& Ctx, uint32_t FamliyIndex) :Context(Ctx)
+ 
+    FCmdPool::FCmdPool(const FContext& Ctx,FQueue& InQueue) :Context(Ctx),Queue(InQueue)
     {
         VkCommandPoolCreateInfo CommandPoolInfo = {};
         CommandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-        CommandPoolInfo.queueFamilyIndex = FamliyIndex;
+        CommandPoolInfo.queueFamilyIndex = Queue.GetFamilyIndex();
         CommandPoolInfo.flags = VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
-        VK_CHECK_THROW(vkCreateCommandPool(Context.Device, &CommandPoolInfo, Context.AllocationCallbacks, &CmdPool),"Failed to create command pool");
-    }
+        VK_CHECK_THROW(vkCreateCommandPool(Context.Device, &CommandPoolInfo, Context.AllocationCallbacks, &CmdPool), "Failed to create command pool");
+    };
 
-    FReusableCmdPool::~FReusableCmdPool()
+    FCmdPool::~FCmdPool()
     {
         if (CmdPool)
         {
@@ -180,47 +50,41 @@ namespace Neko::RHI::Vulkan
         }
     }
 
-    VkCommandBuffer  FReusableCmdPool::AllocCmdBuffer()
-    {
-        VkCommandBuffer CmdBuffer;
-        VkCommandBufferAllocateInfo CmdBufAllocateInfo = {};
-        CmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        CmdBufAllocateInfo.commandPool = CmdPool;
-        CmdBufAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        CmdBufAllocateInfo.commandBufferCount = 1;
-
-        VK_CHECK_THROW(vkAllocateCommandBuffers(Context.Device, &CmdBufAllocateInfo, &CmdBuffer), "Failed to create cmd buffer");
-        CmdBuffers.push_back(CmdBuffer);
-        return CmdBuffer;
-    }
-
-    void  FReusableCmdPool::Reset()
-    {
-        SubmitID = 0;
-        vkFreeCommandBuffers(Context.Device, CmdPool, (uint32_t)CmdBuffers.size(), CmdBuffers.data());
-        
-        CmdBuffers.clear();
-    }
-
-    FCmdPool::FCmdPool(const FContext& Ctx,FQueue& InQueue) :Context(Ctx),Queue(InQueue)
-    {
-        ReusableCmdPool = Queue.GetOrCreateReusableCmdPool();
-    };
-
-    FCmdPool::~FCmdPool()
-    {
-    }
-
     ICmdListRef FCmdPool::CreateCmdList()
     {
-        return new FCmdList(Context, this);
+        std::lock_guard Guard(Mutex);
+        CmdLists.push_back(new FCmdList(Context, this));
+        return CmdLists.back();
+    }
+
+    void FCmdPool::Free()
+    {
+        if (CmdLists.size() > 0)
+        {
+            std::vector<VkCommandBuffer> CmdBufs;
+            CmdBufs.reserve(CmdLists.size());
+            for (auto& CmdList : CmdLists)
+            {
+                CmdBufs.push_back(reinterpret_cast<FCmdList*>(CmdList.GetPtr())->GetCmdBuffer());
+            }
+
+            vkFreeCommandBuffers(Context.Device, CmdPool, CmdBufs.size(), CmdBufs.data());
+
+            CmdLists.clear();
+        }   
     }
 
 
     FCmdList::FCmdList(const FContext & Ctx, FCmdPool* InCmdPool): Context(Ctx), CmdPool(InCmdPool)
     {
         assert(CmdPool != nullptr);
-        CmdBuffer = CmdPool->GetReusableCmdPool()->AllocCmdBuffer();
+        VkCommandBufferAllocateInfo CmdBufAllocateInfo = {};
+        CmdBufAllocateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+        CmdBufAllocateInfo.commandPool = CmdPool->GetCmdPool();
+        CmdBufAllocateInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        CmdBufAllocateInfo.commandBufferCount = 1;
+
+        vkAllocateCommandBuffers(Context.Device, &CmdBufAllocateInfo, &CmdBuffer);
     }
 
     FCmdList::~FCmdList()
@@ -238,43 +102,49 @@ namespace Neko::RHI::Vulkan
 
     void FCmdList::EndCmd()
     {
-        if (ActiveFrameBuffer)
-        {
-            vkCmdEndRenderPass(CmdBuffer);
-            ActiveFrameBuffer = nullptr;
-        }
-
         VK_CHECK_THROW(vkEndCommandBuffer(CmdBuffer), "Failed to end command buffer");
     }
     
-    void FCmdList::BindFrameBuffer(IFrameBuffer* InFrameBuffer)
+    void FCmdList::BeginRenderPass(const FRenderPassDesc& InDesc)
     {
-        if (ActiveFrameBuffer)
+        assert(InDesc.ColorRenderTargetArray.size() > 0);
+
+        auto RTDesc = InDesc.ColorRenderTargetArray[0]->GetDesc();
+
+        static_vector<VkRenderingAttachmentInfoKHR, MAX_RENDER_TARGET_COUNT> RenderingAttachmentInfos;
+        for (uint32_t i = 0; i < InDesc.ColorRenderTargetArray.size(); ++i)
         {
-            vkCmdEndRenderPass(CmdBuffer);
-            ActiveFrameBuffer = nullptr;
+            auto& ColorRT = InDesc.ColorRenderTargetArray[i];
+
+            auto RT = reinterpret_cast<FRenderTarget*>(ColorRT.GetPtr());
+            VkRenderingAttachmentInfoKHR RenderingAttachmentInfo = {};
+            RenderingAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+            RenderingAttachmentInfo.imageView = reinterpret_cast<FTexture2DView*>(RT->GetDesc().Texture2DView)->GetImageView();
+            RenderingAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+            RenderingAttachmentInfo.loadOp = ConvertToVkAttachmentLoadOp(ColorRT->GetDesc().LoadAction);
+            RenderingAttachmentInfo.storeOp = ConvertToVkAttachmentStoreOp(ColorRT->GetDesc().StoreAction);
+            RenderingAttachmentInfos.push_back(RenderingAttachmentInfo);
         }
 
-        ActiveFrameBuffer = InFrameBuffer;
+        VkRect2D RenderArea;
+        RenderArea.offset.x = 0;
+        RenderArea.offset.y = 0;
+        RenderArea.extent.width = RTDesc.Texture2DView->GetTexture()->GetDesc().Width;
+        RenderArea.extent.height = RTDesc.Texture2DView->GetTexture()->GetDesc().Height;
 
-        FFrameBuffer* FrameBuffer = reinterpret_cast<FFrameBuffer*>(InFrameBuffer);
-        auto Info = FrameBuffer->GetInfo();
-        VkRenderPassBeginInfo RenderPassBeginInfo = {};
-        RenderPassBeginInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-        RenderPassBeginInfo.framebuffer = FrameBuffer->GetFrameBuffer();
-        RenderPassBeginInfo.renderPass = FrameBuffer->GetRenderPass();
-        RenderPassBeginInfo.renderArea = { 0,0,(uint32_t)FrameBuffer->GetSize().width,FrameBuffer->GetSize().height };
-        
-        static_vector<VkClearValue, MAX_RENDER_TARGET_COUNT + 1> ClearValues;
-        for (uint32_t i = 0; i < Info.FormatArray.size(); ++i)
-        {
-            ClearValues.push_back({ 0.0f,0.0f ,0.0f ,1.0f });;
-        }
-        
-        RenderPassBeginInfo.clearValueCount = (uint32_t)ClearValues.size();
-        RenderPassBeginInfo.pClearValues = ClearValues.data();
+        VkRenderingInfoKHR RenderingInfo = {};
+        RenderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+        RenderingInfo.renderArea = RenderArea;
+        RenderingInfo.layerCount = 1; // TODO
+        RenderingInfo.colorAttachmentCount = RenderingAttachmentInfos.size();
+        RenderingInfo.pColorAttachments = RenderingAttachmentInfos.data();
 
-        vkCmdBeginRenderPass(CmdBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
+        vkCmdBeginRenderingKHR(CmdBuffer, &RenderingInfo);
+    }
+
+    void FCmdList::EndRenderPass()
+    {
+        vkCmdEndRenderingKHR(CmdBuffer);
     }
 
     void FCmdList::BindGraphicPipeline(IGraphicPipeline* InGraphicPipeline)
@@ -316,6 +186,41 @@ namespace Neko::RHI::Vulkan
         vkCmdDraw(CmdBuffer, VertexNum, InstanceNum, VertexOffset, InstanceOffset);
     }
 
+    void FCmdList::ResourceBarrier(const FTextureTransitionDesc& Desc)
+    {
+
+        VkImageMemoryBarrier ImageMemoryBarrier = {};
+        ImageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+        ImageMemoryBarrier.srcAccessMask = ConvertToVkAccessFlags(Desc.SrcState);
+        ImageMemoryBarrier.oldLayout = ConvertToVkImageLayout(Desc.SrcState);
+        ImageMemoryBarrier.dstAccessMask = ConvertToVkAccessFlags(Desc.DestState);
+        ImageMemoryBarrier.newLayout = ConvertToVkImageLayout(Desc.DestState);
+        auto Texture = reinterpret_cast<FTexture*>(Desc.Texture);
+        ImageMemoryBarrier.image = Texture->GetImage();
+        VkImageSubresourceRange Range;
+        {
+            Range.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            Range.baseArrayLayer = Desc.Range.ArrayOffset;
+            Range.layerCount = Desc.Range.ArraySize;
+            Range.baseMipLevel = Desc.Range.MipOffset;
+            Range.levelCount = Desc.Range.MipNum;
+        }
+        ImageMemoryBarrier.subresourceRange = Range;
+
+        vkCmdPipelineBarrier(
+            CmdBuffer,
+            ConvertToVkPipelineStageFlags(Desc.SrcState),  // srcStageMask
+            ConvertToVkPipelineStageFlags(Desc.DestState), // dstStageMask
+            0,
+            0,
+            nullptr,
+            0,
+            nullptr,
+            1, // imageMemoryBarrierCount
+            &ImageMemoryBarrier // pImageMemoryBarriers
+        );
+    }
+
     IQueueRef FDevice::CreateQueue(const ECmdQueueType& CmdQueueType)
     {
         RefCountPtr<FQueue> Queue = nullptr;
@@ -323,7 +228,7 @@ namespace Neko::RHI::Vulkan
         auto Queues = std::move(FreeQueues);
         for (uint32_t i = 0; i < Queues.size(); ++i)
         {
-            if (Queues[i]->IsTypeFit(CmdQueueType) && !Queue)
+            if (Queues[i]->IsMatch(CmdQueueType) && !Queue)
             {
                 Queue = Queues[i];
                 UsedQueues.push_back(Queues[i]);
@@ -340,21 +245,74 @@ namespace Neko::RHI::Vulkan
         return Queue;
     }
     
-    void FQueue::ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum)
+    void FQueue::ExcuteCmdLists(ICmdList** CmdLists, uint32_t CmdListNum, const FExcuteDesc& Desc)
     {
        assert(CmdListNum > 0);
-       auto SubmitionId = Submit(CmdLists, CmdListNum);
 
-       for (uint32_t i = 0; i < (uint32_t)CmdListNum; ++i)
+       std::vector<VkCommandBuffer> CmdBufs;
+       CmdBufs.reserve(CmdListNum);
+       for (uint32_t i = 0; i < CmdListNum; ++i)
        {
-           auto CmdPool = reinterpret_cast<FCmdList*>(CmdLists[i])->GetCmdPool();
-           CmdPool->GetReusableCmdPool()->SubmitID = SubmitionId;
+           if (CmdLists[i])
+           {
+               auto CmdBuf = reinterpret_cast<FCmdList*>(CmdLists[i])->GetCmdBuffer();
+               CmdBufs.push_back(CmdBuf);
+           }
        }
+
+       std::vector<VkSemaphore> SignalSemaphores;
+       std::vector<uint64_t> SignalSemaphoreValues;
+
+       for (uint32_t i = 0; i < Desc.SignalSemaphoreArray.size(); ++i)
+       {
+           auto Semaphore = (FSemaphore*)Desc.SignalSemaphoreArray[i];
+           SignalSemaphores.push_back(Semaphore->GetSemaphore());
+           SignalSemaphoreValues.push_back(Semaphore->GetCounter());
+       }
+
+       std::vector<VkSemaphore> WaitSemaphores;
+       std::vector<uint64_t> WaitSemaphoreValues;
+
+       for (uint32_t i = 0; i < Desc.WaitSemaphoreArray.size(); ++i)
+       {
+           auto Semaphore = (FSemaphore*)Desc.WaitSemaphoreArray[i];
+           WaitSemaphores.push_back(Semaphore->GetSemaphore());
+           WaitSemaphoreValues.push_back(Semaphore->GetCounter());
+       }
+
+       std::vector<VkPipelineStageFlags> WaitDstStageMasks;
+       WaitDstStageMasks.reserve(Desc.WaitSemaphoreArray.size());
+       for (uint32_t i = 0; i < Desc.WaitSemaphoreArray.size(); ++i)
+       {
+           WaitDstStageMasks.push_back(VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+       }
+
+       auto Fence = reinterpret_cast<FFence*>(Desc.Fence);
+
+       VkTimelineSemaphoreSubmitInfo TimelineSemaphoreSubmitInfo = {};
+       TimelineSemaphoreSubmitInfo.sType = VK_STRUCTURE_TYPE_TIMELINE_SEMAPHORE_SUBMIT_INFO;
+       TimelineSemaphoreSubmitInfo.signalSemaphoreValueCount = (uint32_t)SignalSemaphoreValues.size();
+       TimelineSemaphoreSubmitInfo.pSignalSemaphoreValues = SignalSemaphoreValues.data();
+       TimelineSemaphoreSubmitInfo.waitSemaphoreValueCount = (uint32_t)WaitSemaphoreValues.size();
+       TimelineSemaphoreSubmitInfo.pWaitSemaphoreValues = WaitSemaphoreValues.data();
+
+       VkSubmitInfo SubmitInfo = {};
+       SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+       SubmitInfo.pNext = &TimelineSemaphoreSubmitInfo;
+       SubmitInfo.signalSemaphoreCount = (uint32_t)SignalSemaphores.size();
+       SubmitInfo.pSignalSemaphores = SignalSemaphores.data();
+       SubmitInfo.waitSemaphoreCount = (uint32_t)WaitSemaphores.size();
+       SubmitInfo.pWaitSemaphores = WaitSemaphores.data();
+       SubmitInfo.pWaitDstStageMask = WaitDstStageMasks.data();
+       SubmitInfo.commandBufferCount = (uint32_t)CmdBufs.size();
+       SubmitInfo.pCommandBuffers = CmdBufs.data();
+
+       vkQueueSubmit(Queue, 1, &SubmitInfo, Fence->GetFence());
     }
 
-    void FQueue::ExcuteCmdList(ICmdList* CmdList)
+    void FQueue::ExcuteCmdList(ICmdList* CmdList, const FExcuteDesc& Desc)
     {
         ICmdList* CmdLists[1] = {CmdList};
-        ExcuteCmdLists(CmdLists, 1);
+        ExcuteCmdLists(CmdLists, 1, Desc);
     }
 }
