@@ -10,18 +10,7 @@ namespace Neko::RHI::Vulkan
 
     FSwapchain::~FSwapchain()
     {
-        if (Swapchain)
-        {
-            ImageCount = 0;
-            vkDestroySwapchainKHR(Context.Device, Swapchain, Context.AllocationCallbacks);
-            Swapchain = nullptr;
-        }
-
-        if (Surface)
-        {
-            vkDestroySurfaceKHR(Context.Instance, Surface, Context.AllocationCallbacks);
-            Surface = nullptr;
-        }
+        Reset();
     }
     bool FSwapchain::Initalize(const FSwapChainDesc &Desc)
     {
@@ -116,32 +105,6 @@ namespace Neko::RHI::Vulkan
                 Textures.push_back(Texture);
             }
             
-
-            /*for (uint32_t i = 0; i < ImageCount; ++i)
-            {
-                VkImageViewCreateInfo ImageViewInfo = {};
-                ImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-                ImageViewInfo.format = Format;
-                ImageViewInfo.image = Images[i];
-                ImageViewInfo.viewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
-                
-                VkImageSubresourceRange SubresourceRange;
-                {
-                    SubresourceRange.aspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT;
-                    SubresourceRange.baseMipLevel = 0;
-                    SubresourceRange.baseArrayLayer = 0;
-                    SubresourceRange.layerCount = 1;
-                    SubresourceRange.levelCount = 1;
-                }
-                ImageViewInfo.subresourceRange = SubresourceRange;
-
-                VK_CHECK_THROW(vkCreateImageView(Context.Device, &ImageViewInfo, Context.AllocationCallbacks, &ImageViews[i]), "failed to create iamge view");
-            
-                auto RT = RefCountPtr<FRenderTarget>(new FRenderTarget(Context, Images[i], ImageViews[i], Size, Format));
-                RenderTargets.push_back(RT);
-
-            }*/
-
             return true;
         }
         return false;
@@ -198,5 +161,21 @@ namespace Neko::RHI::Vulkan
     std::vector<ITextureRef>  FSwapchain::GetTextures()
     {
         return Textures;
+    }
+
+    void FSwapchain::Reset()
+    {
+        if (Swapchain)
+        {
+            ImageCount = 0;
+            vkDestroySwapchainKHR(Context.Device, Swapchain, Context.AllocationCallbacks);
+            Swapchain = nullptr;
+        }
+
+        if (Surface)
+        {
+            vkDestroySurfaceKHR(Context.Instance, Surface, Context.AllocationCallbacks);
+            Surface = nullptr;
+        }
     }
 }

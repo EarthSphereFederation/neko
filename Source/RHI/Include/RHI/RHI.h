@@ -513,6 +513,7 @@ namespace Neko::RHI
         virtual void Present(const FPresentDesc&) = 0;
         virtual uint32_t GetTextureNum() = 0;
         virtual std::vector<ITextureRef> GetTextures() = 0;
+        virtual void Reset() = 0;
     };
     typedef RefCountPtr<ISwapchain> ISwapchainRef;
 

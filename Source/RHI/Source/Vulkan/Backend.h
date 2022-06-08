@@ -668,6 +668,7 @@ namespace Neko::RHI::Vulkan
 		virtual void Present(const FPresentDesc&) override;
 		virtual uint32_t GetTextureNum() override;
 		virtual std::vector<ITextureRef> GetTextures() override;
+		virtual void Reset() override;
 	};
 
 	

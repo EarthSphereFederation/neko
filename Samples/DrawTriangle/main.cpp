@@ -41,8 +41,18 @@ int main(int, char **)
         .SetVSync(true).SetWindow(&Window);
 
     auto Swapchain = Device->CreateSwapChain(SwapchainDesc);
-    
     auto SwapchainTextures = Swapchain->GetTextures();
+
+    Window.Attach([&](const OS::FWindowResizeEvent&) 
+    {
+            auto SwapchainDesc = RHI::FSwapChainDesc()
+                .SetFormat(RHI::EFormat::B8G8R8A8_SNORM)
+                .SetVSync(true).SetWindow(&Window);
+            Device->WaitIdle();
+            Swapchain->Reset();
+            Swapchain = Device->CreateSwapChain(SwapchainDesc);
+            SwapchainTextures = Swapchain->GetTextures();
+    });
    
     auto TextureCount = Swapchain->GetTextureNum();
 
