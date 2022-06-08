@@ -116,10 +116,10 @@ namespace Neko::RHI::Vulkan
         {
             auto& ColorRT = InDesc.ColorRenderTargetArray[i];
 
-            auto RT = reinterpret_cast<FRenderTarget*>(ColorRT.GetPtr());
+            auto RenderTarget = reinterpret_cast<FRenderTarget*>(ColorRT.GetPtr());
             VkRenderingAttachmentInfoKHR RenderingAttachmentInfo = {};
             RenderingAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            RenderingAttachmentInfo.imageView = reinterpret_cast<FTexture2DView*>(RT->GetDesc().Texture2DView)->GetImageView();
+            RenderingAttachmentInfo.imageView = RenderTarget->GetImageView();
             RenderingAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
             RenderingAttachmentInfo.loadOp = ConvertToVkAttachmentLoadOp(ColorRT->GetDesc().LoadAction);
             RenderingAttachmentInfo.storeOp = ConvertToVkAttachmentStoreOp(ColorRT->GetDesc().StoreAction);
@@ -129,8 +129,8 @@ namespace Neko::RHI::Vulkan
         VkRect2D RenderArea;
         RenderArea.offset.x = 0;
         RenderArea.offset.y = 0;
-        RenderArea.extent.width = RTDesc.Texture2DView->GetTexture()->GetDesc().Width;
-        RenderArea.extent.height = RTDesc.Texture2DView->GetTexture()->GetDesc().Height;
+        RenderArea.extent.width = RTDesc.Texture->GetDesc().Width;
+        RenderArea.extent.height = RTDesc.Texture->GetDesc().Height;
 
         VkRenderingInfoKHR RenderingInfo = {};
         RenderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;

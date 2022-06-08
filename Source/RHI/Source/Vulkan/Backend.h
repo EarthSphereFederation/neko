@@ -364,7 +364,7 @@ namespace Neko::RHI::Vulkan
 		}
 	}
 
-	inline VkImageViewType ConvertToVkImageViewType(const ETexture2DViewType& Type)
+	/*inline VkImageViewType ConvertToVkImageViewType(const ETexture2DViewType& Type)
 	{
 		switch (Type)
 		{
@@ -376,7 +376,7 @@ namespace Neko::RHI::Vulkan
 			CHECK(false);
 			return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
 		}
-	}
+	}*/
 
 
 	inline VkAccessFlags ConvertToVkAccessFlags(const EResourceState& State)
@@ -609,10 +609,13 @@ namespace Neko::RHI::Vulkan
 	{
 	private:
 		const FContext& Context;
+		VkImageView ImageView = nullptr;
 		FRenderTargetDesc Desc;
 	public:
 		FRenderTarget(const FContext&, const FRenderTargetDesc&);
 		~FRenderTarget();
+		VkImageView GetImageView() const { return ImageView; }
+	public:
 		virtual const FRenderTargetDesc& GetDesc() override { return Desc; };
 	};
 
@@ -639,6 +642,7 @@ namespace Neko::RHI::Vulkan
 		FTexture2DViewDesc Desc;
 	public:
 		FTexture2DView(const FContext&, const FTexture2DViewDesc&);
+		~FTexture2DView();
 		VkImageView GetImageView() const { return ImageView; }
 	public:
 		virtual ITextureRef GetTexture() override;
@@ -689,7 +693,7 @@ namespace Neko::RHI::Vulkan
 		[[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) override;
 		[[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc &desc) override;
 		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(const FTexture2DViewDesc&) override;
-		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture* ,const ETexture2DViewType&) override;
+		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture*) override;
 		[[nodiscard]] virtual IRenderTargetRef CreateRenderTarget(const FRenderTargetDesc&) override;
 		
 		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;

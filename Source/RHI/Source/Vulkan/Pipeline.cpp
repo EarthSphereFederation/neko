@@ -200,7 +200,7 @@ namespace Neko::RHI::Vulkan
 		static_vector<VkFormat, MAX_RENDER_TARGET_COUNT> ColorRTFormats;
 		for (uint32_t i = 0; i < ColorRTCount; ++i)
 		{
-			ColorRTFormats.push_back(ConvertToVkFormat(Desc.ColorRenderTargetDescArray[i].Texture2DView->GetDesc().Format));
+			ColorRTFormats.push_back(ConvertToVkFormat(Desc.ColorRenderTargetDescArray[i].Format));
 		}
 
 		VkPipelineRenderingCreateInfoKHR PipelineRenderingCreateInfo = {};

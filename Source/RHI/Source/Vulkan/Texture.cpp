@@ -18,7 +18,7 @@ namespace Neko::RHI::Vulkan
         ImageViewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
         ImageViewInfo.format = ConvertToVkFormat(Desc.Format);
         ImageViewInfo.image = Texture->GetImage();
-        ImageViewInfo.viewType = ConvertToVkImageViewType(Desc.ViewType);
+        ImageViewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
 
         VkImageSubresourceRange SubresourceRange;
         {
@@ -33,6 +33,15 @@ namespace Neko::RHI::Vulkan
 
         VK_CHECK_THROW(vkCreateImageView(Context.Device, &ImageViewInfo, Context.AllocationCallbacks, &ImageView), "Failed to create iamge view");
 	}
+
+   FTexture2DView:: ~FTexture2DView()
+    {
+        if (ImageView)
+        {
+            vkDestroyImageView(Context.Device, ImageView, Context.AllocationCallbacks);
+            ImageView = nullptr;
+        }
+    }
 
     ITextureRef FTexture2DView::GetTexture()
     {
@@ -49,7 +58,7 @@ namespace Neko::RHI::Vulkan
         return  new FTexture2DView(Context, Desc);
     }
 
-    ITexture2DViewRef FDevice::CreateTexture2DView(ITexture* InTexture, const ETexture2DViewType& InType)
+    ITexture2DViewRef FDevice::CreateTexture2DView(ITexture* InTexture)
     {
         assert(InTexture);
         assert(InTexture->GetDesc().TextureType == ETextureType::Texture2D);
@@ -59,8 +68,7 @@ namespace Neko::RHI::Vulkan
             .SetArraySize(InTexture->GetDesc().ArraySize)
             .SetFormat(InTexture->GetDesc().Format)
             .SetMipNum(InTexture->GetDesc().MipNum)
-            .SetMipOffset(0)
-            .SetViewType(InType);
+            .SetMipOffset(0);
         return CreateTexture2DView(Desc);
     }
 }

@@ -41,18 +41,9 @@ int main(int, char **)
         .SetVSync(true).SetWindow(&Window);
 
     auto Swapchain = Device->CreateSwapChain(SwapchainDesc);
+    
     auto SwapchainTextures = Swapchain->GetTextures();
-    std::vector<RHI::ITexture2DViewRef> SwapchainTextureViews;
-    std::vector<RHI::IRenderTargetRef> SwapchainRTs;
-    for (auto& Texture : SwapchainTextures)
-    {
-        auto View = Device->CreateTexture2DView(Texture, RHI::ETexture2DViewType::ShaderResource2D);
-        SwapchainTextureViews.push_back(View);
-        
-        auto RTDesc = RHI::FRenderTargetDesc().SetTexture2DView(View);
-        SwapchainRTs.push_back(Device->CreateRenderTarget(RTDesc));
-    }
-
+   
     auto TextureCount = Swapchain->GetTextureNum();
 
 #if NEKO_SHADER_DEV
@@ -90,11 +81,13 @@ int main(int, char **)
 
     auto RasterState = RHI::FRasterSate().SetCullMode(RHI::ECullMode::None);
 
+    auto SwapchainRenderTargetDesc = RHI::FRenderTargetDesc().SetTexture(SwapchainTextures[0]).SetFormat(SwapchainTextures[0]->GetDesc().Format);;
+    
     auto GraphicPipelineDesc = RHI::FGraphicPipelineDesc()
         .SetVertexShader(VS)
         .SetPixelShader(PS)
         .SetRasterState(RasterState)
-        .AddColorRenderTargetDesc(SwapchainRTs[0]->GetDesc());
+        .AddColorRenderTargetDesc(SwapchainRenderTargetDesc);
 
     auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc);
 
@@ -104,7 +97,6 @@ int main(int, char **)
 
     auto SubmissionFences = Device->CreateFences(RHI::EFenceFlag::Signal, TextureCount);
     auto AcquireSamephores = Device->CreateSemaphores(RHI::ESemaphoreType::Binary, TextureCount);
-
     auto ExcuteSamephores = Device->CreateSemaphores(RHI::ESemaphoreType::Binary, TextureCount);
 
     // mainloop
@@ -119,7 +111,11 @@ int main(int, char **)
         }
 
         uint32_t SwapchainTextureIndex = FrameNumber % TextureCount;
-        uint32_t PreSwapchainTextureIndex = (FrameNumber - 1) % TextureCount;
+
+        auto SwapchainRenderTargetDesc = RHI::FRenderTargetDesc()
+            .SetTexture(SwapchainTextures[SwapchainTextureIndex])
+            .SetFormat(SwapchainTextures[SwapchainTextureIndex]->GetDesc().Format);
+        auto SwapchainRenderTarget = Device->CreateRenderTarget(SwapchainRenderTargetDesc);
 
         SubmissionFences[SwapchainTextureIndex]->Wait();
         SubmissionFences[SwapchainTextureIndex]->Reset();
@@ -138,7 +134,7 @@ int main(int, char **)
             .SetDestState(RHI::EResourceState::RenderTarget);
         CmdList->ResourceBarrier(Barrier_U2R);
         
-        auto RenderPassDesc = RHI::FRenderPassDesc().AddColorRenderTarget(SwapchainRTs[SwapchainTextureIndex]);
+        auto RenderPassDesc = RHI::FRenderPassDesc().AddColorRenderTarget(SwapchainRenderTarget);
         CmdList->BeginRenderPass(RenderPassDesc);
         CmdList->BindGraphicPipeline(GraphicPipeline);
         CmdList->SetViewportNoScissor(0,512,0,512);

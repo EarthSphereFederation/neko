@@ -84,7 +84,7 @@ namespace Neko::RHI::Vulkan
             VkSwapchainCreateInfoKHR SwapchainInfo = {};
             SwapchainInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
             SwapchainInfo.surface = Surface;
-            SwapchainInfo.minImageCount = 2;
+            SwapchainInfo.minImageCount = Desc.ImageCount;
             SwapchainInfo.imageFormat = Format;
             SwapchainInfo.imageExtent = Size;
             SwapchainInfo.preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
@@ -95,7 +95,7 @@ namespace Neko::RHI::Vulkan
             SwapchainInfo.imageColorSpace = ColorSpace;
             SwapchainInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-            VK_CHECK_THROW(vkCreateSwapchainKHR(Context.Device, &SwapchainInfo, Context.AllocationCallbacks, &Swapchain), "failed to create swapchain");
+            VK_CHECK_THROW(vkCreateSwapchainKHR(Context.Device, &SwapchainInfo, Context.AllocationCallbacks, &Swapchain), "Failed to create swapchain");
 
             std::vector<VkImage> Images;
 

@@ -234,11 +234,6 @@ namespace Neko::RHI
     };
     typedef RefCountPtr<ITexture> ITextureRef;
 
-    enum class ETexture2DViewType : uint8_t
-    {
-        ShaderResource2D,
-    };
-
     struct FSubResourceRange
     {
         NEKO_PARAM_WITH_DEFAULT(uint16_t, MipOffset, 0);
@@ -250,7 +245,6 @@ namespace Neko::RHI
     struct FTexture2DViewDesc
     {
         NEKO_PARAM_WITH_DEFAULT(ITexture*, Texture, nullptr);
-        NEKO_PARAM_WITH_DEFAULT(ETexture2DViewType, ViewType, ETexture2DViewType::ShaderResource2D);
         NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::B8G8R8A8_SNORM);
         NEKO_PARAM_WITH_DEFAULT(uint16_t, MipOffset, 0);
         NEKO_PARAM_WITH_DEFAULT(uint16_t, MipNum, 1);
@@ -268,7 +262,12 @@ namespace Neko::RHI
 
     struct FRenderTargetDesc
     {
-        NEKO_PARAM_WITH_DEFAULT(ITexture2DView*, Texture2DView, nullptr);
+        NEKO_PARAM_WITH_DEFAULT(ITexture*, Texture, nullptr);
+        NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::B8G8R8A8_SNORM);
+        NEKO_PARAM_WITH_DEFAULT(uint16_t, MipOffset, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint16_t, MipNum, 1);
+        NEKO_PARAM_WITH_DEFAULT(uint16_t, ArrayOffset, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint16_t, ArraySize, 1);
         NEKO_PARAM_WITH_DEFAULT(ELoadOp, LoadAction, ELoadOp::Load);
         NEKO_PARAM_WITH_DEFAULT(EStoreOp, StoreAction, EStoreOp::Store);
     };
@@ -502,6 +501,7 @@ namespace Neko::RHI
             WindowRawPtr = InWindowRawPtr;
             return *this;
         }
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, ImageCount, 3);
         NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::Undefined);
         NEKO_PARAM_WITH_DEFAULT(bool, VSync, true);
     };
@@ -558,7 +558,7 @@ namespace Neko::RHI
         [[nodiscard]] virtual IGraphicPipelineRef CreateGraphicPipeline(const FGraphicPipelineDesc &) = 0;
         [[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc&) = 0;
         [[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(const FTexture2DViewDesc&) = 0;
-        [[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture*,const ETexture2DViewType&) = 0;
+        [[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture*) = 0;
         [[nodiscard]] virtual IRenderTargetRef CreateRenderTarget(const FRenderTargetDesc&) = 0;
         
 
