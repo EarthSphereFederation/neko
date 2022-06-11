@@ -70,6 +70,8 @@ namespace Neko::RHI
     {
         B8G8R8A8_SNORM,
         B8G8R8A8_UNORM,
+        R32G32_SFLOAT,
+        R32G32B32_SFLOAT,
         Undefined
     };
 
@@ -207,6 +209,22 @@ namespace Neko::RHI
     };
     NEKO_ENUM_CLASS_FLAG_OPERATORS(ETextureUsage);
 
+    enum class EBufferUsage : uint32_t
+    {
+        VertexBuffer = BIT(0),
+        IndexBuffer = BIT(1),
+        CPUAccess = BIT(2),
+        TransferSrc = BIT(3),
+        TransferDest = BIT(4),
+    };
+    NEKO_ENUM_CLASS_FLAG_OPERATORS(EBufferUsage);
+
+    enum class EIndexBufferType : uint8_t
+    {
+        BIT16,
+        BIT32
+    };
+
     enum class EResourceState : uint16_t
     {
         Undefined    = BIT(0),
@@ -214,6 +232,26 @@ namespace Neko::RHI
         Present      = BIT(2),
     };
     NEKO_ENUM_CLASS_FLAG_OPERATORS(EResourceState);
+
+    struct FBufferDesc
+    {
+        NEKO_PARAM_WITH_DEFAULT(uint16_t, Size, 1);
+        NEKO_PARAM_WITH_DEFAULT(EBufferUsage, BufferUsage, EBufferUsage::VertexBuffer);
+    };
+
+    class IBuffer : public IResource
+    {
+    public:
+        virtual const FBufferDesc& GetDesc() = 0;
+    };
+    typedef RefCountPtr<IBuffer> IBufferRef;
+
+    struct FCopyBufferDesc
+    {
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, SrcOffset, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, DestOffset, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, Size, 0);
+    };
 
     struct FTextureDesc
     {
@@ -321,6 +359,7 @@ namespace Neko::RHI
 
     struct FVertexAttribute
     {
+        NEKO_PARAM_WITH_DEFAULT(const char *, Name, "");
         NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::Undefined);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Location, 0);
@@ -338,7 +377,6 @@ namespace Neko::RHI
     {
         NEKO_PARAM_STATIC_ARRAY(FVertexAttribute, Attribute, MAX_VERTEX_ATTRIBUTE_COUNT);
         NEKO_PARAM_STATIC_ARRAY(FVertexBinding, Binding, MAX_VERTEX_BINDING_COUNT);
-        NEKO_PARAM_WITH_DEFAULT(uint8_t, AttributeCount, 0);
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Unused, 0);
     };
 
@@ -450,10 +488,15 @@ namespace Neko::RHI
         virtual void SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height) = 0;
         virtual void SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) = 0;
        
-        virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset) = 0;
+        virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset) = 0;
+        virtual void DrawIndexed(uint32_t IndexCount, uint32_t FirstIndex, uint32_t VertexOffset) = 0;
         virtual void BindGraphicPipeline(IGraphicPipeline*) = 0;
 
         virtual void ResourceBarrier(const FTextureTransitionDesc&) = 0;
+
+        virtual void CopyBuffer(IBuffer*, IBuffer*, const FCopyBufferDesc&) = 0;
+        virtual void BindVertexBuffer(IBuffer* InBuffer, uint32_t Binding, uint64_t Offset) = 0;
+        virtual void BindIndexBuffer(IBuffer* InBuffer, uint64_t Offset, const EIndexBufferType& Type) = 0;
     };
     typedef RefCountPtr<ICmdList> ICmdListRef;
 
@@ -495,7 +538,7 @@ namespace Neko::RHI
 
     struct FSwapChainDesc
     {
-        OS::FWindow* WindowRawPtr;
+        OS::FWindow* WindowRawPtr = nullptr;
         FSwapChainDesc& SetWindow(OS::FWindow* InWindowRawPtr)
         {
             WindowRawPtr = InWindowRawPtr;
@@ -561,6 +604,12 @@ namespace Neko::RHI
         [[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(const FTexture2DViewDesc&) = 0;
         [[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture*) = 0;
         [[nodiscard]] virtual IRenderTargetRef CreateRenderTarget(const FRenderTargetDesc&) = 0;
+        [[nodiscard]] virtual IBufferRef CreateBuffer(const FBufferDesc&) = 0;
+
+        [[nodiscard]] virtual uint8_t* MapBuffer(IBuffer*,uint32_t Offset, uint32_t Size) = 0;
+        [[nodiscard]] virtual void UnmapBuffer(IBuffer*) = 0;
+       
+
         
 
         [[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) = 0;

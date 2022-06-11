@@ -2,6 +2,10 @@
 #include <cassert>
 #include <map>
 #include <vector>
+#define VMA_IMPLEMENTATION
+#define VMA_STATIC_VULKAN_FUNCTIONS  0
+#define VMA_DYNAMIC_VULKAN_FUNCTIONS 1
+#include "vk_mem_alloc.h"
 
 namespace Neko::RHI
 { 
@@ -9,6 +13,10 @@ namespace Neko::RHI
     {
         FContext::~FContext()
         {
+            if (Allocator)
+            {
+                vmaDestroyAllocator(Allocator);
+            }
             if (Device)
             {
                 vkDestroyDevice(Device, AllocationCallbacks);
@@ -191,6 +199,20 @@ namespace Neko::RHI
 
                 QueueFamilyIndex++;
             }
+
+            VmaVulkanFunctions VulkanFunctions = {};
+            VulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+            VulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
+
+            VmaAllocatorCreateInfo AllocatorCreateInfo = {};
+            AllocatorCreateInfo.vulkanApiVersion = VK_API_VERSION_1_2;
+            AllocatorCreateInfo.physicalDevice = Context.PhysicalDevice;
+            AllocatorCreateInfo.device = Context.Device;
+            AllocatorCreateInfo.instance = Context.Instance;
+            AllocatorCreateInfo.pVulkanFunctions = &VulkanFunctions;
+
+           
+            vmaCreateAllocator(&AllocatorCreateInfo, &Context.Allocator);
 
             return true;
         }

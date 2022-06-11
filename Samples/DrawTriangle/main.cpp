@@ -7,8 +7,14 @@
 #include <vector>
 #include <filesystem>
 #include <stdio.h>
+#include <glm/glm.hpp>
 
 using namespace Neko;
+
+struct FVertex {
+    glm::vec2 pos;
+    glm::vec3 color;
+};
 
 int main(int, char **)
 {
@@ -32,8 +38,9 @@ int main(int, char **)
 
     printf("GPU : %s is used\n", GPUInfo.Name);
 
+    uint32_t WindowsWidth = 512, WindowsHeight = 512;
     auto Window = OS::FWindowBuilder()
-                      .SetSize(512, 512)
+                      .SetSize(WindowsWidth, WindowsHeight)
                       .SetTitle("neko_drawtriangle")
                       .CreateWindow();
     auto SwapchainDesc = RHI::FSwapChainDesc()
@@ -43,7 +50,7 @@ int main(int, char **)
     auto Swapchain = Device->CreateSwapChain(SwapchainDesc);
     auto SwapchainTextures = Swapchain->GetTextures();
 
-    Window.Attach([&](const OS::FWindowResizeEvent&) 
+    Window.Attach([&](const OS::FWindowResizeEvent& Event) 
     {
             auto SwapchainDesc = RHI::FSwapChainDesc()
                 .SetFormat(RHI::EFormat::B8G8R8A8_SNORM)
@@ -52,6 +59,9 @@ int main(int, char **)
             Swapchain->Reset();
             Swapchain = Device->CreateSwapChain(SwapchainDesc);
             SwapchainTextures = Swapchain->GetTextures();
+
+            WindowsWidth = Event.Width;
+            WindowsHeight = Event.Height;
     });
    
     auto TextureCount = Swapchain->GetTextureNum();
@@ -93,14 +103,6 @@ int main(int, char **)
 
     auto SwapchainRenderTargetDesc = RHI::FRenderTargetDesc().SetTexture(SwapchainTextures[0]).SetFormat(SwapchainTextures[0]->GetDesc().Format);;
     
-    auto GraphicPipelineDesc = RHI::FGraphicPipelineDesc()
-        .SetVertexShader(VS)
-        .SetPixelShader(PS)
-        .SetRasterState(RasterState)
-        .AddColorRenderTargetDesc(SwapchainRenderTargetDesc);
-
-    auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc);
-
     auto GraphicQueue = Device->CreateQueue();
 
     auto CmdPools = GraphicQueue->CreateCmdPools(TextureCount);
@@ -108,6 +110,52 @@ int main(int, char **)
     auto SubmissionFences = Device->CreateFences(RHI::EFenceFlag::Signal, TextureCount);
     auto AcquireSamephores = Device->CreateSemaphores(RHI::ESemaphoreType::Binary, TextureCount);
     auto ExcuteSamephores = Device->CreateSemaphores(RHI::ESemaphoreType::Binary, TextureCount);
+
+
+    FVertex V0;
+    V0.pos.x = 0.0f;
+    V0.pos.y = -0.5f;
+    V0.color.r = 1.0f;
+    V0.color.g = 0.0f;
+    V0.color.b = 0.0f;
+    FVertex V1;
+    V1.pos.x = 0.5f;
+    V1.pos.y = 0.5f;
+    V1.color.r = 0.0f;
+    V1.color.g = 1.0f;
+    V1.color.b = 0.0f;
+    FVertex V2;
+    V2.pos.x = -0.5f;
+    V2.pos.y = 0.5f;
+    V2.color.r = 0.0f;
+    V2.color.g = 0.0f;
+    V2.color.b = 1.0f;
+
+    std::vector<FVertex> Vertices;
+    Vertices.push_back(V0);
+    Vertices.push_back(V1);
+    Vertices.push_back(V2);
+
+    std::vector<uint16_t> Indices = { 0,1,2 };
+
+    auto VertexBufferDesc = RHI::FBufferDesc().SetSize(sizeof(FVertex) * Vertices.size()).SetBufferUsage(RHI::EBufferUsage::VertexBuffer | RHI::EBufferUsage::CPUAccess);
+    auto VertexBuffer = Device->CreateBuffer(VertexBufferDesc);
+
+    auto IndexBufferDesc = RHI::FBufferDesc().SetSize(sizeof(uint16_t) * Indices.size()).SetBufferUsage(RHI::EBufferUsage::IndexBuffer | RHI::EBufferUsage::CPUAccess);
+    auto IndexBuffer = Device->CreateBuffer(IndexBufferDesc);
+
+    auto VertexInputLayout = RHI::FVertexInputLayout().AddBinding({ 0,sizeof(FVertex),RHI::EVertexRate::Vertex })
+        .AddAttribute({ "Position",RHI::EFormat::R32G32_SFLOAT,0,0,0})
+        .AddAttribute({ "VertexColor",RHI::EFormat::R32G32B32_SFLOAT,0,1, sizeof(glm::vec2)});
+
+    auto GraphicPipelineDesc = RHI::FGraphicPipelineDesc()
+        .SetVertexShader(VS)
+        .SetPixelShader(PS)
+        .SetRasterState(RasterState)
+        .AddColorRenderTargetDesc(SwapchainRenderTargetDesc)
+        .SetVertexInputLayout(VertexInputLayout);
+
+    auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc);
 
     // mainloop
       
@@ -133,11 +181,19 @@ int main(int, char **)
         auto ImageIdex = Swapchain->AcquireNext(AcquireSamephores[SwapchainTextureIndex],nullptr);
 
         CmdPools[SwapchainTextureIndex]->Free();
+
         auto CmdList = CmdPools[SwapchainTextureIndex]->CreateCmdList();
        
-       
         CmdList->BeginCmd();
-        
+
+        auto VertexBufferPtr = Device->MapBuffer(VertexBuffer, 0, sizeof(FVertex) * Vertices.size());
+        std::memcpy(VertexBufferPtr, Vertices.data(), sizeof(FVertex) * Vertices.size());
+        Device->UnmapBuffer(VertexBuffer);
+
+        auto IndexBufferPtr = Device->MapBuffer(IndexBuffer, 0, sizeof(uint16_t) * Indices.size());
+        std::memcpy(IndexBufferPtr, Indices.data(), sizeof(uint16_t) * Indices.size());
+        Device->UnmapBuffer(IndexBuffer);
+  
         auto Barrier_U2R = RHI::FTextureTransitionDesc()
             .SetTexture(SwapchainTextures[SwapchainTextureIndex])
             .SetSrcState(RHI::EResourceState::Undefined)
@@ -147,8 +203,11 @@ int main(int, char **)
         auto RenderPassDesc = RHI::FRenderPassDesc().AddColorRenderTarget(SwapchainRenderTarget);
         CmdList->BeginRenderPass(RenderPassDesc);
         CmdList->BindGraphicPipeline(GraphicPipeline);
-        CmdList->SetViewportNoScissor(0,512,0,512);
-        CmdList->Draw(3, 0, 1, 0);
+        CmdList->SetViewportNoScissor(0, WindowsWidth,0, WindowsHeight);
+
+        CmdList->BindVertexBuffer(VertexBuffer, 0, 0);
+        CmdList->BindIndexBuffer(IndexBuffer, 0, RHI::EIndexBufferType::BIT16);
+        CmdList->DrawIndexed(Indices.size(),0,0);
         CmdList->EndRenderPass();
         
         auto Barrier_R2P = RHI::FTextureTransitionDesc()

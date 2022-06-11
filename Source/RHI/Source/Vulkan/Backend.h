@@ -6,6 +6,9 @@
 #include <iostream>
 #include <vector>
 #include <mutex>
+#define VULKAN_H_ // workaround for macro pollution
+#include "vk_mem_alloc.h"
+
 namespace Neko::RHI::Vulkan
 { 
 
@@ -89,6 +92,14 @@ namespace Neko::RHI::Vulkan
 		{
 			return VkFormat::VK_FORMAT_B8G8R8A8_UNORM;
 		}
+		case EFormat::R32G32_SFLOAT:
+		{
+			return VkFormat::VK_FORMAT_R32G32_SFLOAT;
+		}
+		case EFormat::R32G32B32_SFLOAT:
+		{
+			return VkFormat::VK_FORMAT_R32G32B32_SFLOAT;
+		}
 		default:
 			CHECK(false);
 			return VkFormat::VK_FORMAT_UNDEFINED;
@@ -106,6 +117,14 @@ namespace Neko::RHI::Vulkan
 		case VkFormat::VK_FORMAT_B8G8R8A8_UNORM:
 		{
 			return EFormat::B8G8R8A8_UNORM;
+		}
+		case VkFormat::VK_FORMAT_R32G32_SFLOAT:
+		{
+			return EFormat::R32G32_SFLOAT;
+		}
+		case VkFormat::VK_FORMAT_R32G32B32_SFLOAT:
+		{
+			return EFormat::R32G32B32_SFLOAT;
 		}
 		default:
 			CHECK(false);
@@ -364,19 +383,37 @@ namespace Neko::RHI::Vulkan
 		}
 	}
 
-	/*inline VkImageViewType ConvertToVkImageViewType(const ETexture2DViewType& Type)
+	inline VkBufferUsageFlags ConvertToVkBufferUsageFlags(const EBufferUsage& Usage)
 	{
-		switch (Type)
+		VkBufferUsageFlags ret = 0;
+		if ((Usage & EBufferUsage::VertexBuffer) != 0)
 		{
-		case ETexture2DViewType::ShaderResource2D:
+			ret |= VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+		}		
+		if ((Usage & EBufferUsage::IndexBuffer) != 0)
 		{
-			return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
+			ret |= VkBufferUsageFlagBits::VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
 		}
-		default:
-			CHECK(false);
-			return VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
+		if ((Usage & EBufferUsage::TransferSrc) != 0)
+		{
+			ret |= VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 		}
-	}*/
+		if ((Usage & EBufferUsage::TransferDest) != 0)
+		{
+			ret |= VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+		}
+		return ret;
+	}
+
+	inline VmaAllocationCreateFlags ConvertToVmaAllocationCreateFlags(const EBufferUsage& Usage)
+	{
+		VmaAllocationCreateFlags ret = 0;
+		if ((Usage & EBufferUsage::CPUAccess) != 0)
+		{
+			ret |= VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+		}
+		return ret;
+	}
 
 
 	inline VkAccessFlags ConvertToVkAccessFlags(const EResourceState& State)
@@ -456,6 +493,8 @@ namespace Neko::RHI::Vulkan
 		VkPhysicalDeviceProperties2 PhyDeviceProperties = {};
 		VkPhysicalDeviceMemoryProperties2 PhyDeviceMemoryProperties = {};
 		VkDeviceCreateInfo DeviceInfo = {};
+
+		VmaAllocator Allocator;
 
 		~FContext();
 	};
@@ -587,10 +626,15 @@ namespace Neko::RHI::Vulkan
 		virtual void SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
 		virtual void SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height) override;
 		virtual void SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
-		virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset) override;
-		
+		virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset) override;
+		virtual void DrawIndexed(uint32_t IndexCount, uint32_t FirstIndex, uint32_t VertexOffset) override;
+
 		virtual void BindGraphicPipeline(IGraphicPipeline*) override;
 		virtual void ResourceBarrier(const FTextureTransitionDesc&) override;
+
+		virtual void CopyBuffer(IBuffer*, IBuffer*, const FCopyBufferDesc&) override;
+		virtual void BindVertexBuffer(IBuffer* InBuffer, uint32_t Binding, uint64_t Offset) override;
+		virtual void BindIndexBuffer(IBuffer* InBuffer, uint64_t Offset, const EIndexBufferType& Type) override;
 	};
 
 	class FBindingLayout final : public RefCounter<IBindingLayout>
@@ -649,6 +693,29 @@ namespace Neko::RHI::Vulkan
 		virtual const FTexture2DViewDesc& GetDesc() override;
 	};
 
+	class FBuffer final : public RefCounter<IBuffer>
+	{
+	private:
+		const FContext& Context;
+		VkBuffer Buffer = nullptr;
+		FBufferDesc Desc;
+		VmaAllocation Allocation;
+
+		bool bMapped = false;
+	public:
+		FBuffer(const FContext&, const FBufferDesc&);
+		~FBuffer();
+	
+		uint8_t* Map(uint32_t Offset, uint32_t Size);
+		void  Unmap();
+		bool IsMapped() const { return bMapped; }
+		VkBuffer GetBuffer() const { return Buffer; }
+	public:
+		virtual const FBufferDesc& GetDesc() override { return Desc; }
+
+		friend class FDevice;
+	};
+
 	class FSwapchain final : public RefCounter<ISwapchain>
 	{
 	private:
@@ -670,8 +737,6 @@ namespace Neko::RHI::Vulkan
 		virtual std::vector<ITextureRef> GetTextures() override;
 		virtual void Reset() override;
 	};
-
-	
 
 	class FDevice final : public RefCounter<IDevice>
 	{
@@ -696,6 +761,10 @@ namespace Neko::RHI::Vulkan
 		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(const FTexture2DViewDesc&) override;
 		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture*) override;
 		[[nodiscard]] virtual IRenderTargetRef CreateRenderTarget(const FRenderTargetDesc&) override;
+		[[nodiscard]] virtual IBufferRef CreateBuffer(const FBufferDesc&) override;
+
+		[[nodiscard]] virtual uint8_t* MapBuffer(IBuffer*, uint32_t Offset, uint32_t Size) override;
+		[[nodiscard]] virtual void UnmapBuffer(IBuffer*) override;
 		
 		virtual bool IsCmdQueueValid(const ECmdQueueType&) override;
 

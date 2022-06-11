@@ -27,10 +27,12 @@ if(NEKO_RHI_VULKAN)
 	#find_package(Vulkan REQUIRED)
 	include(External/volk)
 	include(External/spirv-cross)
+	include(External/VulkanMemoryAllocator)
 endif()
 include(External/ShaderReflection)
 include(External/assimp)
 include(External/meshoptimizer)
+include(External/glm)
  
 #============= neko =============
 

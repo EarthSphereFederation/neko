@@ -55,7 +55,7 @@ namespace Neko::RHI::Vulkan
 		}
 
 		static_vector<VkVertexInputAttributeDescription, MAX_VERTEX_ATTRIBUTE_COUNT> VertexAttributes;
-		for (uint32_t i = 0; i < Desc.VertexInputLayout.AttributeCount; ++i)
+		for (uint32_t i = 0; i < Desc.VertexInputLayout.AttributeArray.size(); ++i)
 		{
 			const auto &va = Desc.VertexInputLayout.AttributeArray[i];
 

@@ -1,6 +1,8 @@
 struct VS_INPUT
 {
-    uint vertexId : SV_VertexID;
+    //uint vertexId : SV_VertexID;
+    float2 position : POSITION;
+    float3 color : COLOR0;
 };
 
 struct VS_OUTPUT
@@ -24,8 +26,8 @@ const static float3 colors[3] = {
 VS_OUTPUT mainVS(VS_INPUT input)
 {
     VS_OUTPUT output;
-    output.pos = float4(positions[input.vertexId], 0.0f, 1.0f);
-    output.col = colors[input.vertexId];
+    output.pos = float4(input.position, 0.0f, 1.0f);
+    output.col = input.color;
     return output;
 }
 

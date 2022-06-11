@@ -68,7 +68,7 @@ namespace Neko::RHI::Vulkan
                 CmdBufs.push_back(reinterpret_cast<FCmdList*>(CmdList.GetPtr())->GetCmdBuffer());
             }
 
-            vkFreeCommandBuffers(Context.Device, CmdPool, CmdBufs.size(), CmdBufs.data());
+            vkFreeCommandBuffers(Context.Device, CmdPool, (uint32_t)CmdBufs.size(), CmdBufs.data());
 
             CmdLists.clear();
         }   
@@ -181,9 +181,14 @@ namespace Neko::RHI::Vulkan
         SetScissor(X, Width, Y, Height);
     }
     
-    void FCmdList::Draw(uint32_t VertexNum, uint32_t VertexOffset, uint32_t InstanceNum, uint32_t InstanceOffset)
+    void FCmdList::Draw(uint32_t VertexNum, uint32_t VertexOffset)
     {
-        vkCmdDraw(CmdBuffer, VertexNum, InstanceNum, VertexOffset, InstanceOffset);
+        vkCmdDraw(CmdBuffer, VertexNum, 1, VertexOffset, 0);
+    }
+
+    void FCmdList::DrawIndexed(uint32_t IndexCount, uint32_t FirstIndex, uint32_t VertexOffset)
+    {
+        vkCmdDrawIndexed(CmdBuffer, IndexCount, 1, FirstIndex, VertexOffset, 0);
     }
 
     void FCmdList::ResourceBarrier(const FTextureTransitionDesc& Desc)
