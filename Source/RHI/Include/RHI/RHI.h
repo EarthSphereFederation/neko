@@ -467,6 +467,30 @@ namespace Neko::RHI
         NEKO_PARAM_STATIC_ARRAY(IColorAttachmentRef, ColorAttachment, MAX_COLOR_ATTACHMENT_COUNT);
     };
 
+    struct FViewport
+    {
+        NEKO_PARAM_WITH_DEFAULT(float, X, 0);
+        NEKO_PARAM_WITH_DEFAULT(float, Y, 0);
+        NEKO_PARAM_WITH_DEFAULT(float, Width, 0);
+        NEKO_PARAM_WITH_DEFAULT(float, Height, 0);
+        NEKO_PARAM_WITH_DEFAULT(float, MinDepth, 0.0f);
+        NEKO_PARAM_WITH_DEFAULT(float, MaxDepth, 1.0f);
+
+        FViewport(float InX, float InY, float InWidth, float InHeight) :
+            X(InX), Y(InY), Width(InWidth), Height(InHeight) {}
+    };
+
+    struct FScissor
+    {
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, X, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, Y, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, Width, 0);
+        NEKO_PARAM_WITH_DEFAULT(uint32_t, Height, 0);
+
+        FScissor(uint32_t InX, uint32_t InY, uint32_t InWidth, uint32_t InHeight) :
+            X(InX), Y(InY), Width(InWidth), Height(InHeight) {}
+    };
+
     class ICmdList : public IResource
     {
     public:
@@ -476,9 +500,10 @@ namespace Neko::RHI
         virtual void BeginRenderPass(const FRenderPassDesc&) = 0;
         virtual void EndRenderPass() = 0;
 
-        virtual void SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) = 0;
-        virtual void SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height) = 0;
-        virtual void SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) = 0;
+        virtual void SetViewport(const FViewport&) = 0;
+        virtual void SetViewports(const FViewport*,uint32_t) = 0;
+        virtual void SetScissor(const FScissor&) = 0;
+        virtual void SetScissors(const FScissor*, uint32_t) = 0;
        
         virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset) = 0;
         virtual void DrawIndexed(uint32_t IndexCount, uint32_t FirstIndex, uint32_t VertexOffset) = 0;

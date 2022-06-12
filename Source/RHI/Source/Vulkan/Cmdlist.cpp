@@ -153,34 +153,47 @@ namespace Neko::RHI::Vulkan
        vkCmdBindPipeline(CmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, GraphicPipeline->GetPipeline());
     }
 
-    void FCmdList::SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth, float MaxDepth)
+    void FCmdList::SetViewport(const FViewport& InViewport)
     {
-        VkViewport Viewport = {};
-        Viewport.x = (float)X;
-        Viewport.y = (float)Y;
-        Viewport.width = (float)Width;
-        Viewport.height = (float)Height;
-        Viewport.minDepth = MinDepth;
-        Viewport.maxDepth = MaxDepth;
-        vkCmdSetViewport(CmdBuffer, 0, 1, &Viewport);
+        SetViewports(&InViewport, 1);
     }
 
-    void FCmdList::SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height)
+    void FCmdList::SetViewports(const FViewport* InViewports,uint32_t ViewportNum)
     {
-        VkRect2D Scissor = {};
-        Scissor.offset.x = X;
-        Scissor.offset.y = Y;
-        Scissor.extent.width = Width;
-        Scissor.extent.height = Height;
-        vkCmdSetScissor(CmdBuffer, 0, 1, &Scissor);
+        std::vector<VkViewport> Viewports(ViewportNum);
+        for (uint32_t i = 0; i < ViewportNum; ++i)
+        {
+            VkViewport& Viewport = Viewports[i];
+            Viewport.x = InViewports[i].X;
+            Viewport.y = InViewports[i].Y;
+            Viewport.width = InViewports[i].Width;
+            Viewport.height = InViewports[i].Height;
+            Viewport.minDepth = InViewports[i].MinDepth;
+            Viewport.maxDepth = InViewports[i].MaxDepth;
+        }
+       
+        vkCmdSetViewport(CmdBuffer, 0, ViewportNum, Viewports.data());
     }
 
-    void FCmdList::SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth, float MaxDepth)
+    void FCmdList::SetScissor(const FScissor& InScissor)
     {
-        SetViewport(X, Width, Y, Height, MinDepth, MaxDepth);
-        SetScissor(X, Width, Y, Height);
+        SetScissors(&InScissor, 1);
     }
-    
+
+    void FCmdList::SetScissors(const FScissor* InScissors, uint32_t ScissorNum)
+    {
+        std::vector<VkRect2D> Scissors(ScissorNum);
+        for (uint32_t i = 0; i < ScissorNum; ++i)
+        {
+            VkRect2D& Scissor = Scissors[i];
+            Scissor.offset.x = InScissors[i].X;
+            Scissor.offset.y = InScissors[i].Y;
+            Scissor.extent.width = InScissors[i].Width;
+            Scissor.extent.height = InScissors[i].Height;
+        }
+        vkCmdSetScissor(CmdBuffer, 0, ScissorNum, Scissors.data());
+    }
+  
     void FCmdList::Draw(uint32_t VertexNum, uint32_t VertexOffset)
     {
         vkCmdDraw(CmdBuffer, VertexNum, 1, VertexOffset, 0);

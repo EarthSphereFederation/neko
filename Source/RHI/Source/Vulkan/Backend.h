@@ -623,9 +623,11 @@ namespace Neko::RHI::Vulkan
 		virtual void BeginRenderPass(const FRenderPassDesc&) override;
 		virtual void EndRenderPass() override;
 
-		virtual void SetViewport(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
-		virtual void SetScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height) override;
-		virtual void SetViewportNoScissor(uint32_t X, uint32_t Width, uint32_t Y, uint32_t Height, float MinDepth = 0.0f, float MaxDepth = 1.0f) override;
+		virtual void SetViewport(const FViewport&) override;
+		virtual void SetViewports(const FViewport*, uint32_t) override;
+		virtual void SetScissor(const FScissor&) override;
+		virtual void SetScissors(const FScissor*, uint32_t) override;
+
 		virtual void Draw(uint32_t VertexNum, uint32_t VertexOffset) override;
 		virtual void DrawIndexed(uint32_t IndexCount, uint32_t FirstIndex, uint32_t VertexOffset) override;
 

@@ -203,7 +203,8 @@ int main(int, char **)
         auto RenderPassDesc = RHI::FRenderPassDesc().AddColorAttachment(SwapchainColorAttachment);
         CmdList->BeginRenderPass(RenderPassDesc);
         CmdList->BindGraphicPipeline(GraphicPipeline);
-        CmdList->SetViewportNoScissor(0, WindowsWidth,0, WindowsHeight);
+        CmdList->SetViewport({0.0f,0.0f,(float)WindowsWidth,(float)WindowsHeight });
+        CmdList->SetScissor({ 0,0,WindowsWidth,WindowsHeight});
 
         CmdList->BindVertexBuffer(VertexBuffer, 0, 0);
         CmdList->BindIndexBuffer(IndexBuffer, 0, RHI::EIndexBufferType::BIT16);
