@@ -298,6 +298,19 @@ namespace Neko::RHI
     };
     typedef RefCountPtr<ITexture2DView> ITexture2DViewRef;
 
+
+    struct FColorAttachmentBlendSate
+    {
+        NEKO_PARAM_WITH_DEFAULT(bool, BlendEnable, false);
+        NEKO_PARAM_WITH_DEFAULT(EBlendFactor, SrcColor, EBlendFactor::One);
+        NEKO_PARAM_WITH_DEFAULT(EBlendFactor, DestColor, EBlendFactor::Zero);
+        NEKO_PARAM_WITH_DEFAULT(EBlendOp, ColorOp, EBlendOp::Add);
+        NEKO_PARAM_WITH_DEFAULT(EBlendFactor, SrcAlpha, EBlendFactor::One);
+        NEKO_PARAM_WITH_DEFAULT(EBlendFactor, DestAlpha, EBlendFactor::Zero);
+        NEKO_PARAM_WITH_DEFAULT(EBlendOp, AlphaOp, EBlendOp::Add);
+        NEKO_PARAM_WITH_DEFAULT(EColorComponent, WriteMask, EColorComponent::All);
+    };
+
     struct FColorAttachmentDesc
     {
         NEKO_PARAM_WITH_DEFAULT(ITexture*, Texture, nullptr);
@@ -308,6 +321,7 @@ namespace Neko::RHI
         NEKO_PARAM_WITH_DEFAULT(uint16_t, ArraySize, 1);
         NEKO_PARAM_WITH_DEFAULT(ELoadOp, LoadAction, ELoadOp::Load);
         NEKO_PARAM_WITH_DEFAULT(EStoreOp, StoreAction, EStoreOp::Store);
+        NEKO_PARAM_WITH_DEFAULT(FColorAttachmentBlendSate, BlendState, FColorAttachmentBlendSate());
     };
 
     struct IColorAttachment : public IResource
@@ -409,28 +423,6 @@ namespace Neko::RHI
         NEKO_PARAM_WITH_DEFAULT(FStencilState, BackStencil, FStencilState());
     };
 
-    struct FBlendState
-    {
-        struct FRenderTarget
-        {
-            NEKO_PARAM_WITH_DEFAULT(bool, BlendEnable, false);
-            NEKO_PARAM_WITH_DEFAULT(EBlendFactor, SrcColor, EBlendFactor::One);
-            NEKO_PARAM_WITH_DEFAULT(EBlendFactor, DestColor, EBlendFactor::Zero);
-            NEKO_PARAM_WITH_DEFAULT(EBlendOp, ColorOp, EBlendOp::Add);
-            NEKO_PARAM_WITH_DEFAULT(EBlendFactor, SrcAlpha, EBlendFactor::One);
-            NEKO_PARAM_WITH_DEFAULT(EBlendFactor, DestAlpha, EBlendFactor::Zero);
-            NEKO_PARAM_WITH_DEFAULT(EBlendOp, AlphaOp, EBlendOp::Add);
-            NEKO_PARAM_WITH_DEFAULT(EColorComponent, WriteMask, EColorComponent::All);
-        };
-
-        FRenderTarget renderTargets[MAX_COLOR_ATTACHMENT_COUNT];
-        FBlendState &SetRenderTarget(uint32_t index, const FRenderTarget &target)
-        {
-            renderTargets[index] = target;
-            return *this;
-        }
-    };
-
     struct FBindingLayoutBinding
     {
         NEKO_PARAM_WITH_DEFAULT(const char*, Name, "");
@@ -460,7 +452,6 @@ namespace Neko::RHI
         NEKO_PARAM_WITH_DEFAULT(FVertexInputLayout, VertexInputLayout, FVertexInputLayout());
         NEKO_PARAM_WITH_DEFAULT(FRasterSate, RasterState, FRasterSate());
         NEKO_PARAM_WITH_DEFAULT(FDepthStencilState, DepthStencilState, FDepthStencilState());
-        NEKO_PARAM_WITH_DEFAULT(FBlendState, BlendState, FBlendState());
         NEKO_PARAM_STATIC_ARRAY(IBindingLayoutRef, BindingLayout, MAX_BINDING_LAYOUT_COUNT);
 
         NEKO_PARAM_STATIC_ARRAY(FColorAttachmentDesc, ColorAttachmentDesc, MAX_COLOR_ATTACHMENT_COUNT);

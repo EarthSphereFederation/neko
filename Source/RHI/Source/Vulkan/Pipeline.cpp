@@ -144,16 +144,16 @@ namespace Neko::RHI::Vulkan
 
 		for (uint32_t i = 0; i < ColorAttachmentDescCount; ++i)
 		{
-			auto rt = Desc.BlendState.renderTargets[i];
+			auto& ColorAttachmentBlendState = Desc.ColorAttachmentDescArray[i].BlendState;
 			VkPipelineColorBlendAttachmentState ColorBlendAttachment = {};
-			ColorBlendAttachment.blendEnable = rt.BlendEnable;
-			ColorBlendAttachment.colorBlendOp = ConvertToVkBlendOp(rt.ColorOp);
-			ColorBlendAttachment.srcColorBlendFactor = ConvertToVkBlendFactor(rt.SrcColor);
-			ColorBlendAttachment.dstColorBlendFactor = ConvertToVkBlendFactor(rt.DestColor);
-			ColorBlendAttachment.alphaBlendOp = ConvertToVkBlendOp(rt.AlphaOp);
-			ColorBlendAttachment.srcAlphaBlendFactor = ConvertToVkBlendFactor(rt.SrcAlpha);
-			ColorBlendAttachment.dstAlphaBlendFactor = ConvertToVkBlendFactor(rt.DestAlpha);
-			ColorBlendAttachment.colorWriteMask = ConvertToVkColorComponentFlags(rt.WriteMask);
+			ColorBlendAttachment.blendEnable = ColorAttachmentBlendState.BlendEnable;
+			ColorBlendAttachment.colorBlendOp = ConvertToVkBlendOp(ColorAttachmentBlendState.ColorOp);
+			ColorBlendAttachment.srcColorBlendFactor = ConvertToVkBlendFactor(ColorAttachmentBlendState.SrcColor);
+			ColorBlendAttachment.dstColorBlendFactor = ConvertToVkBlendFactor(ColorAttachmentBlendState.DestColor);
+			ColorBlendAttachment.alphaBlendOp = ConvertToVkBlendOp(ColorAttachmentBlendState.AlphaOp);
+			ColorBlendAttachment.srcAlphaBlendFactor = ConvertToVkBlendFactor(ColorAttachmentBlendState.SrcAlpha);
+			ColorBlendAttachment.dstAlphaBlendFactor = ConvertToVkBlendFactor(ColorAttachmentBlendState.DestAlpha);
+			ColorBlendAttachment.colorWriteMask = ConvertToVkColorComponentFlags(ColorAttachmentBlendState.WriteMask);
 			ColorBlendAttachmentStates.push_back(ColorBlendAttachment);
 		}
 
