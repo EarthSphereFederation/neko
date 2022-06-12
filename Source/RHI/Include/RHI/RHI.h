@@ -203,9 +203,9 @@ namespace Neko::RHI
 
     enum class ETextureUsage : uint8_t
     {
-        ShaderResource  = BIT(0),
-        UnorderedAccess = BIT(1),
-        RenderTarget    = BIT(2)
+        Texture  = BIT(0),
+        StorageTexture = BIT(1),
+        ColorAttachment    = BIT(2)
     };
     NEKO_ENUM_CLASS_FLAG_OPERATORS(ETextureUsage);
 
@@ -213,7 +213,7 @@ namespace Neko::RHI
     {
         VertexBuffer = BIT(0),
         IndexBuffer = BIT(1),
-        CPUAccess = BIT(2),
+        HostAccess = BIT(2),
         TransferSrc = BIT(3),
         TransferDest = BIT(4),
     };
@@ -228,7 +228,7 @@ namespace Neko::RHI
     enum class EResourceState : uint16_t
     {
         Undefined    = BIT(0),
-        RenderTarget = BIT(1),
+        ColorAttachment = BIT(1),
         Present      = BIT(2),
     };
     NEKO_ENUM_CLASS_FLAG_OPERATORS(EResourceState);
@@ -256,7 +256,7 @@ namespace Neko::RHI
     struct FTextureDesc
     {
         NEKO_PARAM_WITH_DEFAULT(ETextureType, TextureType, ETextureType::Texture2D);
-        NEKO_PARAM_WITH_DEFAULT(ETextureUsage, TextureUsage, ETextureUsage::ShaderResource);
+        NEKO_PARAM_WITH_DEFAULT(ETextureUsage, TextureUsage, ETextureUsage::Texture);
         NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::B8G8R8A8_SNORM);
         NEKO_PARAM_WITH_DEFAULT(uint16_t, Width, 1);
         NEKO_PARAM_WITH_DEFAULT(uint16_t, Height, 1);
@@ -334,7 +334,7 @@ namespace Neko::RHI
     struct FTextureTransitionDesc
     {
         NEKO_PARAM_WITH_DEFAULT(ITexture*, Texture, nullptr);
-        NEKO_PARAM_WITH_DEFAULT(EResourceState, SrcState, EResourceState::RenderTarget);
+        NEKO_PARAM_WITH_DEFAULT(EResourceState, SrcState, EResourceState::ColorAttachment);
         NEKO_PARAM_WITH_DEFAULT(EResourceState, DestState, EResourceState::Present);
         NEKO_PARAM_WITH_DEFAULT(FSubResourceRange, Range, FSubResourceRange());
     };
@@ -350,8 +350,8 @@ namespace Neko::RHI
     class ISemaphore : public IResource
     {
     public:
-        virtual void SetCounter(float) = 0;
-        virtual float GetCounter() = 0;
+        virtual void SetCounter(uint64_t) = 0;
+        virtual uint64_t GetCounter() = 0;
     };
     typedef RefCountPtr<ISemaphore> ISemaphoreRef;
 
@@ -485,6 +485,7 @@ namespace Neko::RHI
         virtual void BindGraphicPipeline(IGraphicPipeline*) = 0;
 
         virtual void ResourceBarrier(const FTextureTransitionDesc&) = 0;
+        virtual void ResourceBarrier(IColorAttachment*,const EResourceState& Src, const EResourceState& Dest) = 0;
 
         virtual void CopyBuffer(IBuffer*, IBuffer*, const FCopyBufferDesc&) = 0;
         virtual void BindVertexBuffer(IBuffer* InBuffer, uint32_t Binding, uint64_t Offset) = 0;

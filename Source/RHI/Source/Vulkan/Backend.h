@@ -408,7 +408,7 @@ namespace Neko::RHI::Vulkan
 	inline VmaAllocationCreateFlags ConvertToVmaAllocationCreateFlags(const EBufferUsage& Usage)
 	{
 		VmaAllocationCreateFlags ret = 0;
-		if ((Usage & EBufferUsage::CPUAccess) != 0)
+		if ((Usage & EBufferUsage::HostAccess) != 0)
 		{
 			ret |= VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
 		}
@@ -424,7 +424,7 @@ namespace Neko::RHI::Vulkan
 		{
 			return VkAccessFlagBits::VK_ACCESS_NONE;
 		}
-		case EResourceState::RenderTarget:
+		case EResourceState::ColorAttachment:
 		{
 			return VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
 		}
@@ -446,7 +446,7 @@ namespace Neko::RHI::Vulkan
 		{
 			return VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
 		}
-		case EResourceState::RenderTarget:
+		case EResourceState::ColorAttachment:
 		{
 			return VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
@@ -468,7 +468,7 @@ namespace Neko::RHI::Vulkan
 		{
 			return VkPipelineStageFlagBits::VK_PIPELINE_STAGE_NONE;
 		}
-		case EResourceState::RenderTarget:
+		case EResourceState::ColorAttachment:
 		{
 			return VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		}
@@ -504,13 +504,13 @@ namespace Neko::RHI::Vulkan
 	private:
 		const FContext& Context;
 		VkSemaphore Semaphore = nullptr;
-		float Counter = 0;
+		uint64_t Counter = 0;
 	public:
 		FSemaphore(const FContext& ,const ESemaphoreType&);
 		~FSemaphore();
 		VkSemaphore GetSemaphore() const { return Semaphore; }
-		virtual void SetCounter(float Value) override { Counter = Value; };
-		virtual float GetCounter() override { return Counter; }
+		virtual void SetCounter(uint64_t Value) override { Counter = Value; };
+		virtual uint64_t GetCounter() override { return Counter; }
 	};
 
 	class FFence : public RefCounter<IFence>
@@ -631,6 +631,7 @@ namespace Neko::RHI::Vulkan
 
 		virtual void BindGraphicPipeline(IGraphicPipeline*) override;
 		virtual void ResourceBarrier(const FTextureTransitionDesc&) override;
+		virtual void ResourceBarrier(IColorAttachment*, const EResourceState& Src, const EResourceState& Dest) override;
 
 		virtual void CopyBuffer(IBuffer*, IBuffer*, const FCopyBufferDesc&) override;
 		virtual void BindVertexBuffer(IBuffer* InBuffer, uint32_t Binding, uint64_t Offset) override;

@@ -136,7 +136,7 @@ namespace Neko::RHI::Vulkan
         RenderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
         RenderingInfo.renderArea = RenderArea;
         RenderingInfo.layerCount = 1; // TODO
-        RenderingInfo.colorAttachmentCount = RenderingAttachmentInfos.size();
+        RenderingInfo.colorAttachmentCount = (uint32_t)RenderingAttachmentInfos.size();
         RenderingInfo.pColorAttachments = RenderingAttachmentInfos.data();
 
         vkCmdBeginRenderingKHR(CmdBuffer, &RenderingInfo);
@@ -224,6 +224,24 @@ namespace Neko::RHI::Vulkan
             1, // imageMemoryBarrierCount
             &ImageMemoryBarrier // pImageMemoryBarriers
         );
+    }
+
+    void FCmdList::ResourceBarrier(IColorAttachment* InColorAttachment, const EResourceState& Src, const EResourceState& Dest)
+    { 
+        auto& ColorAttachmentDesc = InColorAttachment->GetDesc();
+        auto Range = FSubResourceRange()
+            .SetArrayOffset(ColorAttachmentDesc.ArrayOffset)
+            .SetArraySize(ColorAttachmentDesc.ArraySize)
+            .SetMipOffset(ColorAttachmentDesc.MipOffset)
+            .SetMipNum(ColorAttachmentDesc.MipNum);
+
+        auto Desc = FTextureTransitionDesc()
+            .SetTexture(ColorAttachmentDesc.Texture)
+            .SetSrcState(Src)
+            .SetDestState(Dest)
+            .SetRange(Range);
+
+        ResourceBarrier(Desc);
     }
 
     IQueueRef FDevice::CreateQueue(const ECmdQueueType& CmdQueueType)

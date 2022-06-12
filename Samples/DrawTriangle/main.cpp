@@ -138,10 +138,10 @@ int main(int, char **)
 
     std::vector<uint16_t> Indices = { 0,1,2 };
 
-    auto VertexBufferDesc = RHI::FBufferDesc().SetSize(sizeof(FVertex) * Vertices.size()).SetBufferUsage(RHI::EBufferUsage::VertexBuffer | RHI::EBufferUsage::CPUAccess);
+    auto VertexBufferDesc = RHI::FBufferDesc().SetSize(sizeof(FVertex) * Vertices.size()).SetBufferUsage(RHI::EBufferUsage::VertexBuffer | RHI::EBufferUsage::HostAccess);
     auto VertexBuffer = Device->CreateBuffer(VertexBufferDesc);
 
-    auto IndexBufferDesc = RHI::FBufferDesc().SetSize(sizeof(uint16_t) * Indices.size()).SetBufferUsage(RHI::EBufferUsage::IndexBuffer | RHI::EBufferUsage::CPUAccess);
+    auto IndexBufferDesc = RHI::FBufferDesc().SetSize(sizeof(uint16_t) * Indices.size()).SetBufferUsage(RHI::EBufferUsage::IndexBuffer | RHI::EBufferUsage::HostAccess);
     auto IndexBuffer = Device->CreateBuffer(IndexBufferDesc);
 
     auto VertexInputLayout = RHI::FVertexInputLayout().AddBinding({ 0,sizeof(FVertex),RHI::EVertexRate::Vertex })
@@ -198,11 +198,7 @@ int main(int, char **)
         std::memcpy(IndexBufferPtr, Indices.data(), sizeof(uint16_t) * Indices.size());
         Device->UnmapBuffer(IndexBuffer);
   
-        auto Barrier_U2R = RHI::FTextureTransitionDesc()
-            .SetTexture(SwapchainTextures[SwapchainTextureIndex])
-            .SetSrcState(RHI::EResourceState::Undefined)
-            .SetDestState(RHI::EResourceState::RenderTarget);
-        CmdList->ResourceBarrier(Barrier_U2R);
+        CmdList->ResourceBarrier(SwapchainColorAttachment, RHI::EResourceState::Undefined, RHI::EResourceState::ColorAttachment);
         
         auto RenderPassDesc = RHI::FRenderPassDesc().AddColorAttachment(SwapchainColorAttachment);
         CmdList->BeginRenderPass(RenderPassDesc);
@@ -214,11 +210,7 @@ int main(int, char **)
         CmdList->DrawIndexed(Indices.size(),0,0);
         CmdList->EndRenderPass();
         
-        auto Barrier_R2P = RHI::FTextureTransitionDesc()
-            .SetTexture(SwapchainTextures[SwapchainTextureIndex])
-            .SetSrcState(RHI::EResourceState::RenderTarget)
-            .SetDestState(RHI::EResourceState::Present);
-        CmdList->ResourceBarrier(Barrier_R2P);
+        CmdList->ResourceBarrier(SwapchainColorAttachment, RHI::EResourceState::ColorAttachment, RHI::EResourceState::Present);
         
         CmdList->EndCmd();
         
