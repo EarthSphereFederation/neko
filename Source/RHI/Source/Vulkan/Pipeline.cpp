@@ -24,7 +24,7 @@ namespace Neko::RHI::Vulkan
 	bool FGraphicPipeline::Initalize()
 	{
 
-		uint32_t ColorRTCount = (uint32_t)Desc.ColorRenderTargetDescArray.size();
+		uint32_t ColorAttachmentDescCount = (uint32_t)Desc.ColorAttachmentDescArray.size();
 		static_vector<VkPipelineShaderStageCreateInfo, MAX_SHADER_STAGE_COUNT> ShaderStages;
 
 		static_vector<IShaderRef, MAX_SHADER_STAGE_COUNT> Shaders;
@@ -140,9 +140,9 @@ namespace Neko::RHI::Vulkan
 		DepthStencilState.front = FrontStencilOpSate;
 		DepthStencilState.back = BackStencilOpSate;
 
-		static_vector<VkPipelineColorBlendAttachmentState, MAX_RENDER_TARGET_COUNT> ColorBlendAttachmentStates;
+		static_vector<VkPipelineColorBlendAttachmentState, MAX_COLOR_ATTACHMENT_COUNT> ColorBlendAttachmentStates;
 
-		for (uint32_t i = 0; i < ColorRTCount; ++i)
+		for (uint32_t i = 0; i < ColorAttachmentDescCount; ++i)
 		{
 			auto rt = Desc.BlendState.renderTargets[i];
 			VkPipelineColorBlendAttachmentState ColorBlendAttachment = {};
@@ -197,16 +197,16 @@ namespace Neko::RHI::Vulkan
 		DynamicStateCreateInfo.dynamicStateCount = 2;
 		DynamicStateCreateInfo.pDynamicStates = DynamicStates;
 
-		static_vector<VkFormat, MAX_RENDER_TARGET_COUNT> ColorRTFormats;
-		for (uint32_t i = 0; i < ColorRTCount; ++i)
+		static_vector<VkFormat, MAX_COLOR_ATTACHMENT_COUNT>ColorAttachmentFormats;
+		for (uint32_t i = 0; i < ColorAttachmentDescCount; ++i)
 		{
-			ColorRTFormats.push_back(ConvertToVkFormat(Desc.ColorRenderTargetDescArray[i].Format));
+			ColorAttachmentFormats.push_back(ConvertToVkFormat(Desc.ColorAttachmentDescArray[i].Format));
 		}
 
 		VkPipelineRenderingCreateInfoKHR PipelineRenderingCreateInfo = {};
 		PipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-		PipelineRenderingCreateInfo.colorAttachmentCount = ColorRTCount;
-		PipelineRenderingCreateInfo.pColorAttachmentFormats = ColorRTFormats.data();
+		PipelineRenderingCreateInfo.colorAttachmentCount = ColorAttachmentDescCount;
+		PipelineRenderingCreateInfo.pColorAttachmentFormats = ColorAttachmentFormats.data();
 		
 
 		VkGraphicsPipelineCreateInfo PipelineInfo = {};

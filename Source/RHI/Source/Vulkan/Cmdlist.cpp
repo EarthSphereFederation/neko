@@ -107,22 +107,22 @@ namespace Neko::RHI::Vulkan
     
     void FCmdList::BeginRenderPass(const FRenderPassDesc& InDesc)
     {
-        assert(InDesc.ColorRenderTargetArray.size() > 0);
+        assert(InDesc.ColorAttachmentArray.size() > 0);
 
-        auto RTDesc = InDesc.ColorRenderTargetArray[0]->GetDesc();
+        auto RTDesc = InDesc.ColorAttachmentArray[0]->GetDesc();
 
-        static_vector<VkRenderingAttachmentInfoKHR, MAX_RENDER_TARGET_COUNT> RenderingAttachmentInfos;
-        for (uint32_t i = 0; i < InDesc.ColorRenderTargetArray.size(); ++i)
+        static_vector<VkRenderingAttachmentInfoKHR, MAX_COLOR_ATTACHMENT_COUNT> RenderingAttachmentInfos;
+        for (uint32_t i = 0; i < InDesc.ColorAttachmentArray.size(); ++i)
         {
-            auto& ColorRT = InDesc.ColorRenderTargetArray[i];
+            auto& ColorAttachment = InDesc.ColorAttachmentArray[i];
 
-            auto RenderTarget = reinterpret_cast<FRenderTarget*>(ColorRT.GetPtr());
+            auto ColorAttachmentVK = reinterpret_cast<FColorAttachment*>(ColorAttachment.GetPtr());
             VkRenderingAttachmentInfoKHR RenderingAttachmentInfo = {};
             RenderingAttachmentInfo.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-            RenderingAttachmentInfo.imageView = RenderTarget->GetImageView();
+            RenderingAttachmentInfo.imageView = ColorAttachmentVK->GetImageView();
             RenderingAttachmentInfo.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-            RenderingAttachmentInfo.loadOp = ConvertToVkAttachmentLoadOp(ColorRT->GetDesc().LoadAction);
-            RenderingAttachmentInfo.storeOp = ConvertToVkAttachmentStoreOp(ColorRT->GetDesc().StoreAction);
+            RenderingAttachmentInfo.loadOp = ConvertToVkAttachmentLoadOp(ColorAttachment->GetDesc().LoadAction);
+            RenderingAttachmentInfo.storeOp = ConvertToVkAttachmentStoreOp(ColorAttachment->GetDesc().StoreAction);
             RenderingAttachmentInfos.push_back(RenderingAttachmentInfo);
         }
 

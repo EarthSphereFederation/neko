@@ -1,7 +1,7 @@
 #include "Backend.h"
 namespace Neko::RHI::Vulkan
 { 
-	FRenderTarget::FRenderTarget(const FContext& Ctx, const FRenderTargetDesc& InDesc)
+    FColorAttachment::FColorAttachment(const FContext& Ctx, const FColorAttachmentDesc& InDesc)
 		:Context(Ctx),Desc(InDesc)
 	{
         FTexture* Texture = reinterpret_cast<FTexture*>(Desc.Texture);
@@ -26,7 +26,7 @@ namespace Neko::RHI::Vulkan
         VK_CHECK_THROW(vkCreateImageView(Context.Device, &ImageViewInfo, Context.AllocationCallbacks, &ImageView), "Failed to create iamge view");
 	}
 
-	FRenderTarget::~FRenderTarget()
+    FColorAttachment::~FColorAttachment()
 	{
         if (ImageView)
         {
@@ -35,8 +35,8 @@ namespace Neko::RHI::Vulkan
         }
 	}
 
-	IRenderTargetRef FDevice::CreateRenderTarget(const FRenderTargetDesc& InDesc)
+	IColorAttachmentRef FDevice::CreateColorAttachment(const FColorAttachmentDesc& InDesc)
 	{
-		return new FRenderTarget(Context, InDesc);
+		return new FColorAttachment(Context, InDesc);
 	}
 }

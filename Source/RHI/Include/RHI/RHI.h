@@ -59,7 +59,7 @@ namespace Neko::RHI
         return *this;                                \
     }
 
-    constexpr uint32_t MAX_RENDER_TARGET_COUNT = 8;
+    constexpr uint32_t MAX_COLOR_ATTACHMENT_COUNT = 8;
     constexpr uint32_t MAX_VERTEX_ATTRIBUTE_COUNT = 15;
     constexpr uint32_t MAX_VERTEX_BINDING_COUNT = 15;
     constexpr uint32_t MAX_BINDING_LAYOUT_COUNT = 5;
@@ -298,7 +298,7 @@ namespace Neko::RHI
     };
     typedef RefCountPtr<ITexture2DView> ITexture2DViewRef;
 
-    struct FRenderTargetDesc
+    struct FColorAttachmentDesc
     {
         NEKO_PARAM_WITH_DEFAULT(ITexture*, Texture, nullptr);
         NEKO_PARAM_WITH_DEFAULT(EFormat, Format, EFormat::B8G8R8A8_SNORM);
@@ -310,12 +310,12 @@ namespace Neko::RHI
         NEKO_PARAM_WITH_DEFAULT(EStoreOp, StoreAction, EStoreOp::Store);
     };
 
-    struct IRenderTarget : public IResource
+    struct IColorAttachment : public IResource
     {
     public:
-        virtual const FRenderTargetDesc& GetDesc() = 0;
+        virtual const FColorAttachmentDesc& GetDesc() = 0;
     };
-    typedef RefCountPtr<IRenderTarget> IRenderTargetRef;
+    typedef RefCountPtr<IColorAttachment> IColorAttachmentRef;
 
     struct FTextureTransitionDesc
     {
@@ -423,7 +423,7 @@ namespace Neko::RHI
             NEKO_PARAM_WITH_DEFAULT(EColorComponent, WriteMask, EColorComponent::All);
         };
 
-        FRenderTarget renderTargets[MAX_RENDER_TARGET_COUNT];
+        FRenderTarget renderTargets[MAX_COLOR_ATTACHMENT_COUNT];
         FBlendState &SetRenderTarget(uint32_t index, const FRenderTarget &target)
         {
             renderTargets[index] = target;
@@ -433,6 +433,7 @@ namespace Neko::RHI
 
     struct FBindingLayoutBinding
     {
+        NEKO_PARAM_WITH_DEFAULT(const char*, Name, "");
         NEKO_PARAM_WITH_DEFAULT(uint8_t, Binding, 0);
         NEKO_PARAM_WITH_DEFAULT(EResourceType, ResourceType, EResourceType::UniformBuffer);
     };
@@ -462,7 +463,7 @@ namespace Neko::RHI
         NEKO_PARAM_WITH_DEFAULT(FBlendState, BlendState, FBlendState());
         NEKO_PARAM_STATIC_ARRAY(IBindingLayoutRef, BindingLayout, MAX_BINDING_LAYOUT_COUNT);
 
-        NEKO_PARAM_STATIC_ARRAY(FRenderTargetDesc, ColorRenderTargetDesc, MAX_RENDER_TARGET_COUNT);
+        NEKO_PARAM_STATIC_ARRAY(FColorAttachmentDesc, ColorAttachmentDesc, MAX_COLOR_ATTACHMENT_COUNT);
     };
 
     class IGraphicPipeline : public IResource
@@ -472,7 +473,7 @@ namespace Neko::RHI
 
     struct FRenderPassDesc
     {
-        NEKO_PARAM_STATIC_ARRAY(IRenderTargetRef, ColorRenderTarget, MAX_RENDER_TARGET_COUNT);
+        NEKO_PARAM_STATIC_ARRAY(IColorAttachmentRef, ColorAttachment, MAX_COLOR_ATTACHMENT_COUNT);
     };
 
     class ICmdList : public IResource
@@ -603,19 +604,14 @@ namespace Neko::RHI
         [[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc&) = 0;
         [[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(const FTexture2DViewDesc&) = 0;
         [[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture*) = 0;
-        [[nodiscard]] virtual IRenderTargetRef CreateRenderTarget(const FRenderTargetDesc&) = 0;
+        [[nodiscard]] virtual IColorAttachmentRef CreateColorAttachment(const FColorAttachmentDesc&) = 0;
         [[nodiscard]] virtual IBufferRef CreateBuffer(const FBufferDesc&) = 0;
 
         [[nodiscard]] virtual uint8_t* MapBuffer(IBuffer*,uint32_t Offset, uint32_t Size) = 0;
         [[nodiscard]] virtual void UnmapBuffer(IBuffer*) = 0;
        
-
-        
-
         [[nodiscard]] virtual IBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc &desc) = 0;
-
-        
-        
+ 
         virtual bool IsCmdQueueValid(const ECmdQueueType&) = 0;
 
         virtual void WaitIdle() = 0;

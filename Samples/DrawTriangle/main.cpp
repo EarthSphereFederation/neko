@@ -101,7 +101,7 @@ int main(int, char **)
 
     auto RasterState = RHI::FRasterSate().SetCullMode(RHI::ECullMode::None);
 
-    auto SwapchainRenderTargetDesc = RHI::FRenderTargetDesc().SetTexture(SwapchainTextures[0]).SetFormat(SwapchainTextures[0]->GetDesc().Format);;
+    auto SwapchainColorAttachmentDesc = RHI::FColorAttachmentDesc().SetTexture(SwapchainTextures[0]).SetFormat(SwapchainTextures[0]->GetDesc().Format);;
     
     auto GraphicQueue = Device->CreateQueue();
 
@@ -148,12 +148,16 @@ int main(int, char **)
         .AddAttribute({ "Position",RHI::EFormat::R32G32_SFLOAT,0,0,0})
         .AddAttribute({ "VertexColor",RHI::EFormat::R32G32B32_SFLOAT,0,1, sizeof(glm::vec2)});
 
+   /* auto BindingLayoutDesc = RHI::FBindingLayoutDesc().AddBinding({ "MVPMatrix", 0 ,RHI::EResourceType::UniformBuffer }).SetShaderStage(RHI::EShaderStage::Vertex);
+    auto BindingLayout = Device->CreateBindingLayout(BindingLayoutDesc);*/
+
     auto GraphicPipelineDesc = RHI::FGraphicPipelineDesc()
         .SetVertexShader(VS)
         .SetPixelShader(PS)
         .SetRasterState(RasterState)
-        .AddColorRenderTargetDesc(SwapchainRenderTargetDesc)
+        .AddColorAttachmentDesc(SwapchainColorAttachmentDesc)
         .SetVertexInputLayout(VertexInputLayout);
+        //.AddBindingLayout(BindingLayout);
 
     auto GraphicPipeline = Device->CreateGraphicPipeline(GraphicPipelineDesc);
 
@@ -170,10 +174,10 @@ int main(int, char **)
 
         uint32_t SwapchainTextureIndex = FrameNumber % TextureCount;
 
-        auto SwapchainRenderTargetDesc = RHI::FRenderTargetDesc()
+        auto SwapchainColorAttachmentDesc = RHI::FColorAttachmentDesc()
             .SetTexture(SwapchainTextures[SwapchainTextureIndex])
             .SetFormat(SwapchainTextures[SwapchainTextureIndex]->GetDesc().Format);
-        auto SwapchainRenderTarget = Device->CreateRenderTarget(SwapchainRenderTargetDesc);
+        auto SwapchainColorAttachment = Device->CreateColorAttachment(SwapchainColorAttachmentDesc);
 
         SubmissionFences[SwapchainTextureIndex]->Wait();
         SubmissionFences[SwapchainTextureIndex]->Reset();
@@ -200,7 +204,7 @@ int main(int, char **)
             .SetDestState(RHI::EResourceState::RenderTarget);
         CmdList->ResourceBarrier(Barrier_U2R);
         
-        auto RenderPassDesc = RHI::FRenderPassDesc().AddColorRenderTarget(SwapchainRenderTarget);
+        auto RenderPassDesc = RHI::FRenderPassDesc().AddColorAttachment(SwapchainColorAttachment);
         CmdList->BeginRenderPass(RenderPassDesc);
         CmdList->BindGraphicPipeline(GraphicPipeline);
         CmdList->SetViewportNoScissor(0, WindowsWidth,0, WindowsHeight);

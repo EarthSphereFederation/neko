@@ -649,18 +649,18 @@ namespace Neko::RHI::Vulkan
 		VkDescriptorSetLayout GetDescriptorSetLayout() const { return DescriptorSetLayout; }
 	};
 	
-	class FRenderTarget final : public RefCounter<IRenderTarget>
+	class FColorAttachment final : public RefCounter<IColorAttachment>
 	{
-	private:
+	public:
 		const FContext& Context;
 		VkImageView ImageView = nullptr;
-		FRenderTargetDesc Desc;
-	public:
-		FRenderTarget(const FContext&, const FRenderTargetDesc&);
-		~FRenderTarget();
+		FColorAttachmentDesc Desc;
+	
+		FColorAttachment(const FContext&, const FColorAttachmentDesc&);
+		~FColorAttachment();
 		VkImageView GetImageView() const { return ImageView; }
 	public:
-		virtual const FRenderTargetDesc& GetDesc() override { return Desc; };
+		virtual const FColorAttachmentDesc& GetDesc() override { return Desc; };
 	};
 
 	class FTexture final : public RefCounter <ITexture>
@@ -760,7 +760,7 @@ namespace Neko::RHI::Vulkan
 		[[nodiscard]] virtual ISwapchainRef CreateSwapChain(const FSwapChainDesc &desc) override;
 		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(const FTexture2DViewDesc&) override;
 		[[nodiscard]] virtual ITexture2DViewRef CreateTexture2DView(ITexture*) override;
-		[[nodiscard]] virtual IRenderTargetRef CreateRenderTarget(const FRenderTargetDesc&) override;
+		[[nodiscard]] virtual IColorAttachmentRef CreateColorAttachment(const FColorAttachmentDesc&) override;
 		[[nodiscard]] virtual IBufferRef CreateBuffer(const FBufferDesc&) override;
 
 		[[nodiscard]] virtual uint8_t* MapBuffer(IBuffer*, uint32_t Offset, uint32_t Size) override;
